@@ -166,6 +166,8 @@ export const useSession = create<SessionStore>()(
         });
       },
     }),
-    { name: StorageKeys.session, storage: zustandStorage, version: 1 },
+    // v2: 5-handed default. Bumping discards any persisted 6-player session
+    // so old tables don't resurrect with the wrong seat count.
+    { name: StorageKeys.session, storage: zustandStorage, version: 2 },
   ),
 );

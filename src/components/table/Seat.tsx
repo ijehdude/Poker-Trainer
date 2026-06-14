@@ -41,8 +41,9 @@ export function Seat({
   if (seat.status === 'empty') return null;
   const folded = seat.status === 'folded';
   const showFace = seat.isHero || reveal;
-  // Hero's own cards are face-up and noticeably larger than opponents' backs.
-  const cardSize = seat.isHero ? (compact ? 'sm' : 'lg') : 'xs';
+  // One consistent card size for every seat (and the board). Hero cards are
+  // distinguished by being face-up + highlighted, not by being larger.
+  const cardSize = compact ? 'sm' : 'table';
 
   return (
     <div className={cn('flex flex-col items-center gap-1', folded && 'opacity-45 saturate-[0.4]')}>

@@ -14,7 +14,7 @@ export function Board({
   highlightSet,
 }: {
   cards: readonly Card[];
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'sm' | 'md' | 'lg' | 'table';
   highlightSet?: Set<string>;
 }) {
   const ph =
@@ -22,7 +22,9 @@ export function Board({
       ? 'h-24 w-16 rounded-lg'
       : size === 'sm'
         ? 'h-[3.25rem] w-9 rounded-md'
-        : 'h-[4.4rem] w-12 rounded-md';
+        : size === 'table'
+          ? 'h-[clamp(2.8rem,6.16vw,4.2rem)] w-[clamp(2rem,4.4vw,3rem)] rounded-md'
+          : 'h-[4.4rem] w-12 rounded-md';
   return (
     <div className="flex items-center justify-center gap-1.5 sm:gap-2">
       <AnimatePresence initial={false}>

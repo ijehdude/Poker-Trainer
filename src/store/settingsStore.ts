@@ -35,9 +35,12 @@ export interface SettingsState {
 
 const ALL_STYLES: BotStyle[] = ['nit', 'tag', 'lag', 'station', 'balanced'];
 
+// Four opponents → a 5-handed table (hero + 4).
+const OPPONENT_COUNT = 4;
+
 function randomStyles(): BotStyle[] {
   return Array.from(
-    { length: 5 },
+    { length: OPPONENT_COUNT },
     () => ALL_STYLES[Math.floor(Math.random() * ALL_STYLES.length)]!,
   );
 }
@@ -55,7 +58,7 @@ export const useSettings = create<SettingsState>()(
       coachMode: 'offline',
       soundEnabled: false,
       motion: 'system',
-      tableStyles: ['nit', 'tag', 'lag', 'station', 'balanced'],
+      tableStyles: ['nit', 'tag', 'lag', 'balanced'],
       startingStackBB: 100,
       showEquityOverlay: true,
 
@@ -70,7 +73,22 @@ export const useSettings = create<SettingsState>()(
     {
       name: StorageKeys.settings,
       storage: zustandStorage,
-      version: 1,
+      version: 2,
+      // v2 moved the default table from 6-handed (5 opponents) to 5-handed
+      // (4 opponents). Trim any persisted 5-opponent table while preserving
+      // the user's other preferences.
+      migrate: (persisted, version) => {
+        const s = (persisted ?? {}) as Partial<SettingsState>;
+        if (
+          version < 2 &&
+          Array.isArray(s.tableStyles) &&
+          s.tableStyles.length !== OPPONENT_COUNT
+        ) {
+          s.tableStyles = s.tableStyles.slice(0, OPPONENT_COUNT);
+          while (s.tableStyles.length < OPPONENT_COUNT) s.tableStyles.push('balanced');
+        }
+        return s as SettingsState;
+      },
     },
   ),
 );

@@ -9,24 +9,27 @@ import { Board } from './Board';
 import { PotDisplay } from './PotDisplay';
 import { ChipStack } from './Chip';
 
-/** Seat anchor points (percent of the table box). Hero is seat 0 at bottom. */
+/**
+ * Seat anchor points (percent of the table box), for a 5-handed table.
+ * Hero is seat 0 and is LOCKED at bottom-center — it never moves with the
+ * button. The four opponents are distributed symmetrically left/right, which
+ * leaves the top-center slot empty (reserved for the pot — see below).
+ */
 const SEAT_POS: { x: number; y: number }[] = [
-  { x: 50, y: 87 }, // 0 hero (bottom)
-  { x: 12, y: 65 }, // 1
-  { x: 12, y: 25 }, // 2
-  { x: 50, y: 8 }, // 3 (top)
-  { x: 88, y: 25 }, // 4
-  { x: 88, y: 65 }, // 5
+  { x: 50, y: 84 }, // 0 hero — fixed bottom-center
+  { x: 88, y: 58 }, // 1 right-lower
+  { x: 74, y: 16 }, // 2 right-upper
+  { x: 26, y: 16 }, // 3 left-upper
+  { x: 12, y: 58 }, // 4 left-lower
 ];
 
-/** Where each seat's bet chips sit (pulled toward the pot). */
+/** Where each seat's bet chips sit (pulled toward the pot/board). */
 const BET_POS: { x: number; y: number }[] = [
-  { x: 50, y: 66 },
-  { x: 30, y: 57 },
-  { x: 30, y: 37 },
-  { x: 50, y: 28 },
-  { x: 70, y: 37 },
-  { x: 70, y: 57 },
+  { x: 50, y: 68 }, // hero
+  { x: 72, y: 50 },
+  { x: 64, y: 30 },
+  { x: 36, y: 30 },
+  { x: 28, y: 50 },
 ];
 
 function winningsFor(game: GameState, seatId: number): number {
@@ -61,11 +64,27 @@ export function PokerTable({
         <div className="absolute inset-0 rounded-[44%] bg-neon-sheen opacity-30 sm:rounded-[46%]" />
       </div>
 
+      {/* Pot — at the empty top-center slot (no player ever sits here) */}
+      <div
+        className="absolute z-20 -translate-x-1/2 -translate-y-1/2"
+        style={{ left: '50%', top: '11%' }}
+      >
+        <PotDisplay amount={pot} bigBlind={game.bigBlind} />
+      </div>
+
+      {/* Community board — true center, directly below the pot */}
+      <div
+        className="absolute z-20 -translate-x-1/2 -translate-y-1/2"
+        style={{ left: '50%', top: '43%' }}
+      >
+        <Board cards={game.board} size={compact ? 'sm' : 'table'} />
+      </div>
+
       {/* Winner callout (auto-clears when the next hand begins) */}
       {winnerLine && (
         <motion.div
           className="absolute left-1/2 z-40 -translate-x-1/2 -translate-y-1/2"
-          style={{ top: '26%' }}
+          style={{ top: '63%' }}
           initial={{ opacity: 0, scale: 0.8, y: 6 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           transition={{ type: 'spring', stiffness: 320, damping: 22 }}
@@ -76,19 +95,11 @@ export function PokerTable({
         </motion.div>
       )}
 
-      {/* Pot + board cluster (center) */}
-      <div
-        className="absolute z-20 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-2"
-        style={{ left: '50%', top: '45%' }}
-      >
-        <PotDisplay amount={pot} bigBlind={game.bigBlind} />
-        <Board cards={game.board} size={compact ? 'sm' : 'md'} />
-      </div>
-
       {/* Per-seat bet chips */}
       {game.seats.map((seat) => {
         if (seat.streetCommitted <= 0 || seat.status === 'empty') return null;
-        const pos = BET_POS[seat.id]!;
+        const pos = BET_POS[seat.id];
+        if (!pos) return null;
         return (
           <div
             key={`bet-${seat.id}`}
@@ -103,7 +114,8 @@ export function PokerTable({
       {/* Seats */}
       {game.seats.map((seat) => {
         if (seat.status === 'empty') return null;
-        const pos = SEAT_POS[seat.id]!;
+        const pos = SEAT_POS[seat.id];
+        if (!pos) return null;
         return (
           <motion.div
             key={`seat-${seat.id}`}

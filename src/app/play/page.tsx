@@ -92,42 +92,44 @@ export default function PlayPage() {
   // sizing input. No global handler needed here.
 
   const dock = game ? (
-    <div className="bg-bg/90 pb-safe fixed inset-x-0 bottom-0 z-50 border-t border-panel-border px-3 py-2.5 backdrop-blur-md lg:static lg:z-auto lg:border-0 lg:bg-transparent lg:px-0 lg:py-0 lg:pb-0">
-      <div className="mx-auto max-w-md">
-        {game.status === 'complete' ? (
-          sessionStatus === 'hero-busted' ? (
-            <EndState
-              title="You’re out — busted"
-              subtitle="Your stack hit zero. Start a new game to reset the table."
-              onNewGame={startNew}
-            />
-          ) : sessionStatus === 'table-won' ? (
-            <EndState
-              title={`${winnerName ?? 'You'} ${winnerName && winnerName !== 'You' ? 'wins' : 'win'} the table 🏆`}
-              subtitle="Last player standing — everyone else busted."
-              onNewGame={startNew}
+    <div className="pb-safe shrink-0 px-1 pb-[clamp(0.5rem,2vh,1rem)] pt-1">
+      <div className="mx-auto flex min-h-[clamp(3.25rem,8vh,4.5rem)] max-w-md items-center justify-center">
+        <div className="w-full">
+          {game.status === 'complete' ? (
+            sessionStatus === 'hero-busted' ? (
+              <EndState
+                title="You’re out — busted"
+                subtitle="Your stack hit zero. Start a new game to reset the table."
+                onNewGame={startNew}
+              />
+            ) : sessionStatus === 'table-won' ? (
+              <EndState
+                title={`${winnerName ?? 'You'} ${winnerName && winnerName !== 'You' ? 'wins' : 'win'} the table 🏆`}
+                subtitle="Last player standing — everyone else busted."
+                onNewGame={startNew}
+              />
+            ) : (
+              <Button size="lg" block onClick={deal}>
+                Deal next hand →
+              </Button>
+            )
+          ) : heroTurn ? (
+            <Controls
+              legal={la}
+              pot={game.seats.reduce((s, x) => s + x.committed, 0)}
+              currentBet={game.currentBet}
+              bigBlind={game.bigBlind}
+              onAction={handleHeroAct}
             />
           ) : (
-            <Button size="lg" block onClick={deal}>
-              Deal next hand →
-            </Button>
-          )
-        ) : heroTurn ? (
-          <Controls
-            legal={la}
-            pot={game.seats.reduce((s, x) => s + x.committed, 0)}
-            currentBet={game.currentBet}
-            bigBlind={game.bigBlind}
-            onAction={handleHeroAct}
-          />
-        ) : (
-          <div className="text-center text-sm text-ink-muted">
-            <span className="inline-flex items-center gap-2">
-              <span className="h-2 w-2 animate-pulse rounded-full bg-accent" />
-              {phase === 'playing' ? 'Opponents are acting…' : 'Dealing…'}
-            </span>
-          </div>
-        )}
+            <div className="text-center text-sm text-ink-muted">
+              <span className="inline-flex items-center gap-2">
+                <span className="h-2 w-2 animate-pulse rounded-full bg-accent" />
+                {phase === 'playing' ? 'Opponents are acting…' : 'Dealing…'}
+              </span>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   ) : null;
@@ -138,7 +140,7 @@ export default function PlayPage() {
 
       <main
         id="main"
-        className="mx-auto flex min-h-0 w-full max-w-7xl flex-1 flex-col gap-3 px-3 pb-36 pt-3 sm:px-5 lg:grid lg:grid-cols-[minmax(0,1fr)_clamp(320px,26vw,380px)] lg:gap-5 lg:overflow-hidden lg:pb-3"
+        className="mx-auto flex min-h-0 w-full max-w-7xl flex-1 flex-col gap-2 px-3 pb-2 pt-3 sm:px-5 lg:grid lg:grid-cols-[minmax(0,1fr)_clamp(320px,26vw,380px)] lg:gap-5 lg:overflow-hidden lg:pb-3"
       >
         {/* Table column */}
         <section className="flex min-h-0 flex-col gap-2">
@@ -185,8 +187,8 @@ function EmptyTable({ onDeal }: { onDeal: () => void }) {
     <div className="ring-felt-light/30 relative mx-auto flex aspect-[3/4] w-full max-w-md flex-col items-center justify-center gap-5 rounded-[44%] bg-felt-radial p-8 text-center shadow-deep ring-1 sm:aspect-[16/10] sm:max-w-2xl lg:h-full lg:max-h-full lg:w-auto lg:max-w-full">
       <h2 className="font-display text-2xl font-bold">Take a seat</h2>
       <p className="max-w-sm text-sm text-ink-secondary">
-        6-max cash, 100bb deep. You’ll be coached on every decision with live equity, pot odds, and
-        a verdict.
+        5-handed cash, 100bb deep. You’ll be coached on every decision with live equity, pot odds,
+        and a verdict.
       </p>
       <Button size="lg" onClick={onDeal}>
         Deal me in →

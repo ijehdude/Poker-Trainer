@@ -5,7 +5,7 @@ import type { Card } from '@/engine/types';
 import { SUIT_SYMBOL, rankChar } from '@/engine/cards';
 import { cn } from '@/lib/cn';
 
-type CardSize = 'xs' | 'sm' | 'md' | 'lg';
+type CardSize = 'xs' | 'sm' | 'md' | 'lg' | 'table';
 
 const SIZES: Record<CardSize, { box: string; rank: string; pip: string; center: string }> = {
   xs: {
@@ -17,6 +17,14 @@ const SIZES: Record<CardSize, { box: string; rank: string; pip: string; center: 
   sm: { box: 'w-9 h-[3.25rem] rounded-md', rank: 'text-sm', pip: 'text-[11px]', center: 'text-xl' },
   md: { box: 'w-12 h-[4.4rem] rounded-md', rank: 'text-lg', pip: 'text-sm', center: 'text-2xl' },
   lg: { box: 'w-16 h-24 rounded-lg', rank: 'text-2xl', pip: 'text-lg', center: 'text-4xl' },
+  // Single fluid size shared by hero hole cards, opponents, and the board on
+  // the Play screen — keeps every card identical and scaled to the viewport.
+  table: {
+    box: 'w-[clamp(2rem,4.4vw,3rem)] h-[clamp(2.8rem,6.16vw,4.2rem)] rounded-md',
+    rank: 'text-[clamp(0.65rem,1.4vw,0.95rem)]',
+    pip: 'text-[clamp(0.5rem,1.1vw,0.72rem)]',
+    center: 'text-[clamp(0.95rem,2.4vw,1.55rem)]',
+  },
 };
 
 /**

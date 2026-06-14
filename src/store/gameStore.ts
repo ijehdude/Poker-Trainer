@@ -33,6 +33,7 @@ import { estimateEquity, type EquityResult } from '@/engine/equity';
 import { createEquityClient, type EquityClient } from '@/engine/equityClient';
 import { formatCard } from '@/engine/cards';
 import { toFrame, saveHand, type HandFrame, type HandRecord } from '@/lib/history';
+import { useSession } from './sessionStore';
 import type { ActionType, Card, Street } from '@/engine/types';
 import type { Position } from '@/engine/ranges';
 import type { BotStyle } from '@/engine/bots';
@@ -70,8 +71,6 @@ export type GamePhase = 'idle' | 'playing' | 'complete';
 interface GameStore {
   game: GameState | null;
   phase: GamePhase;
-  buttonIndex: number;
-  handCount: number;
 
   /** Live hero equity for the overlay (async). */
   heroEquity: EquityResult | null;
@@ -87,7 +86,10 @@ interface GameStore {
   /** Replay frames for the current hand. */
   frames: HandFrame[];
 
-  newHand: (table: TableConfig) => void;
+  /** Reset the session to fresh stacks and deal hand 1. */
+  startSession: (table: TableConfig) => void;
+  /** Deal the next hand using carried-over session stacks. */
+  dealHand: () => void;
   heroAct: (action: Action) => void;
   botStep: () => { acted: boolean; complete: boolean };
   legal: () => LegalActions;
@@ -122,8 +124,6 @@ function quickEquity(
 export const useGame = create<GameStore>((set, get) => ({
   game: null,
   phase: 'idle',
-  buttonIndex: 0,
-  handCount: 0,
   heroEquity: null,
   equityLoading: false,
   decisions: [],
@@ -131,44 +131,17 @@ export const useGame = create<GameStore>((set, get) => ({
   lastBotAction: null,
   frames: [],
 
-  newHand: (table) => {
-    const prev = get();
-    const handCount = prev.handCount + 1;
-    // Rotate the button each hand (hero is seat 0).
-    const buttonIndex = prev.game ? (prev.buttonIndex + 1) % 6 : 0;
-
-    const seats: SeatConfig[] = [
-      { name: 'You', isHero: true, style: null, stack: table.startingStack },
-      ...table.styles.map((style, i) => ({
-        name: villainName(style, i),
-        isHero: false,
-        style,
-        stack: table.startingStack,
-      })),
-    ];
-
-    const game = createHand({
-      seats,
-      buttonIndex,
+  startSession: (table) => {
+    useSession.getState().startNewGame({
+      styles: table.styles,
+      startingStack: table.startingStack,
       smallBlind: table.smallBlind,
       bigBlind: table.bigBlind,
-      handNumber: handCount,
     });
-
-    set({
-      game,
-      phase: 'playing',
-      buttonIndex,
-      handCount,
-      decisions: [],
-      lastVerdict: null,
-      lastBotAction: null,
-      heroEquity: null,
-      frames: [toFrame(game)],
-    });
-
-    maybeComputeHeroEquity(get, set);
+    dealFromSession(get, set);
   },
+
+  dealHand: () => dealFromSession(get, set),
 
   heroAct: (action) => {
     const { game } = get();
@@ -215,7 +188,10 @@ export const useGame = create<GameStore>((set, get) => ({
     }));
 
     if (next.status === 'betting') maybeComputeHeroEquity(get, set);
-    else persistHand(get);
+    else {
+      persistHand(get);
+      recordSession(next);
+    }
   },
 
   botStep: () => {
@@ -245,6 +221,7 @@ export const useGame = create<GameStore>((set, get) => ({
       maybeComputeHeroEquity(get, set);
     } else if (next.status !== 'betting') {
       persistHand(get);
+      recordSession(next);
     }
     return { acted: true, complete: next.status !== 'betting' };
   },
@@ -269,6 +246,47 @@ export const useGame = create<GameStore>((set, get) => ({
   reset: () =>
     set({ game: null, phase: 'idle', decisions: [], heroEquity: null, lastVerdict: null }),
 }));
+
+/** Deal a hand from the durable session: carried-over stacks, skip busts. */
+function dealFromSession(get: () => GameStore, set: (partial: Partial<GameStore>) => void): void {
+  const session = useSession.getState();
+  if (!session.active || session.status !== 'active' || session.players.length === 0) return;
+
+  const seats: SeatConfig[] = session.players.map((p) => ({
+    name: p.name,
+    isHero: p.isHero,
+    style: p.style,
+    // Eliminated players are seated with 0 chips → the engine marks them empty.
+    stack: p.eliminated ? 0 : p.stack,
+  }));
+
+  const game = createHand({
+    seats,
+    buttonIndex: session.buttonSeat,
+    smallBlind: session.smallBlind,
+    bigBlind: session.bigBlind,
+    handNumber: session.handsCompleted + 1,
+  });
+
+  set({
+    game,
+    phase: 'playing',
+    decisions: [],
+    lastVerdict: null,
+    lastBotAction: null,
+    heroEquity: null,
+    frames: [toFrame(game)],
+  });
+
+  maybeComputeHeroEquity(get, set);
+}
+
+/** Push a finished hand's final stacks into the session (eliminations, button). */
+function recordSession(game: GameState): void {
+  useSession
+    .getState()
+    .recordResult(game.seats.map((s) => ({ seat: s.id, stack: s.stack, isHero: s.isHero })));
+}
 
 /** Kick off an async hero-equity computation if it's the hero's turn. */
 function maybeComputeHeroEquity(
@@ -337,19 +355,6 @@ function persistHand(get: () => GameStore): void {
     decisions,
   };
   saveHand(record);
-}
-
-const STYLE_NAMES: Record<BotStyle, string[]> = {
-  nit: ['Rocky', 'Stone', 'Vault'],
-  tag: ['Ace', 'Sterling', 'Mason'],
-  lag: ['Blaze', 'Maverick', 'Riot'],
-  station: ['Sticky', 'Dax', 'Penny'],
-  balanced: ['Nova', 'Sage', 'Pixel'],
-};
-
-function villainName(style: BotStyle, index: number): string {
-  const pool = STYLE_NAMES[style];
-  return pool[index % pool.length]!;
 }
 
 export { currentPot };

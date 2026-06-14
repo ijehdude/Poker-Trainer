@@ -190,3 +190,74 @@ describe('gameEngine — full hand conserves chips', () => {
     expect(won).toBeCloseTo(potTotal, 6);
   });
 });
+
+describe('gameEngine — eliminations & seat rotation', () => {
+  const cfg = (stacks: number[], buttonIndex: number, seed = 1): HandConfig => ({
+    seats: stacks.map((stack, i) => ({
+      name: i === 0 ? 'Hero' : `Bot ${i}`,
+      isHero: i === 0,
+      style: i === 0 ? null : 'tag',
+      stack,
+    })),
+    buttonIndex,
+    smallBlind: 0.5,
+    bigBlind: 1,
+    handNumber: 1,
+    rng: mulberry32(seed),
+  });
+
+  it('skips an empty seat when posting the small blind', () => {
+    // Seat 1 (the natural SB) is eliminated; SB should move to seat 2.
+    const s = createHand(cfg([100, 0, 100, 100, 100, 100], 0));
+    expect(s.seats[1]!.status).toBe('empty');
+    expect(s.seats[1]!.committed).toBe(0);
+    expect(s.seats[2]!.committed).toBe(0.5); // SB
+    expect(s.seats[3]!.committed).toBe(1); // BB
+    expect(s.seats[2]!.position).toBe('SB');
+    expect(s.seats[3]!.position).toBe('BB');
+    expect(s.buttonIndex).toBe(0);
+    expect(s.toAct).toBe(4); // UTG = first live seat after BB
+  });
+
+  it('snaps the button to the next live seat when it lands on an empty one', () => {
+    const s = createHand(cfg([100, 0, 100, 100, 100, 100], 1)); // button on empty seat 1
+    expect(s.buttonIndex).toBe(2);
+    expect(s.seats[2]!.position).toBe('BTN');
+    expect(s.seats[3]!.committed).toBe(0.5); // SB
+    expect(s.seats[4]!.committed).toBe(1); // BB
+  });
+
+  it('applies heads-up rules with two live players (button posts SB, acts first)', () => {
+    const s = createHand(cfg([100, 0, 0, 100, 0, 0], 0)); // seats 0 & 3 live
+    expect(s.buttonIndex).toBe(0);
+    expect(s.seats[0]!.position).toBe('BTN');
+    expect(s.seats[3]!.position).toBe('BB');
+    expect(s.seats[0]!.committed).toBe(0.5); // button = SB
+    expect(s.seats[3]!.committed).toBe(1); // BB
+    expect(s.toAct).toBe(0); // SB/button acts first preflop heads-up
+  });
+
+  it('heads-up: the big blind acts first postflop', () => {
+    let s = createHand(cfg([100, 0, 0, 100, 0, 0], 0));
+    s = applyAction(s, { type: 'call' }); // SB/button completes
+    s = applyAction(s, { type: 'check' }); // BB checks
+    expect(s.street).toBe('flop');
+    expect(s.toAct).toBe(3); // BB acts first postflop
+  });
+
+  it('conserves chips and keeps eliminated seats empty through a hand', () => {
+    let s = createHand(cfg([100, 0, 100, 100, 100, 100], 0, 7));
+    const start = s.seats.reduce((sum, x) => sum + x.stack + x.committed, 0);
+    let guard = 0;
+    while (s.status === 'betting' && guard++ < 300) {
+      const la = legalActions(s);
+      if (la.canCheck) s = applyAction(s, { type: 'check' });
+      else if (la.callAmount <= 1) s = applyAction(s, { type: 'call' });
+      else s = applyAction(s, { type: 'fold' });
+    }
+    expect(s.status).toBe('complete');
+    expect(s.seats.reduce((sum, x) => sum + x.stack, 0)).toBeCloseTo(start, 6);
+    expect(s.seats[1]!.stack).toBe(0);
+    expect(s.seats[1]!.status).toBe('empty');
+  });
+});

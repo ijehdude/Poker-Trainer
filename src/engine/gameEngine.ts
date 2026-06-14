@@ -17,7 +17,7 @@
 import type { ActionType, Card, Street } from './types';
 import { makeDeck, shuffle } from './cards';
 import { evaluateCards } from './evaluator';
-import { POSITIONS, type Position } from './ranges';
+import { type Position } from './ranges';
 import type { BotStyle } from './bots';
 
 export type SeatStatus = 'active' | 'folded' | 'allin' | 'empty';
@@ -121,16 +121,68 @@ function canActSeats(seats: Seat[]): Seat[] {
   return seats.filter((s) => s.status === 'active' && s.stack > 0);
 }
 
-/** Position label for a seat given its clockwise offset from the button. */
-function positionForOffset(offset: number, numSeats: number): Position {
-  // offset 0 = BTN, 1 = SB, 2 = BB, 3 = UTG, 4 = HJ, 5 = CO (6-max)
-  const ORDER: Position[] = ['BTN', 'SB', 'BB', 'UTG', 'HJ', 'CO'];
-  if (numSeats === 6) return ORDER[offset]!;
-  // Fallback for non-6-max: blinds first, rest map onto early→late.
-  if (offset === 0) return 'BTN';
-  if (offset === 1) return 'SB';
-  if (offset === 2) return 'BB';
-  return POSITIONS[Math.min(POSITIONS.length - 1, 2 + offset)] ?? 'UTG';
+/**
+ * Per-hand seating setup computed over LIVE seats only (stack > 0), so
+ * eliminated/empty seats are skipped for the button, blinds, positions, and
+ * first-to-act. Handles 3–6 handed and the heads-up special case.
+ */
+interface HandSetup {
+  /** Live seat ids, clockwise starting from the (effective) button. */
+  order: number[];
+  positions: Record<number, Position>;
+  sbId: number;
+  bbId: number;
+  /** Seat id that acts first preflop. */
+  preflopFirst: number;
+  /** The effective button seat (always a live seat). */
+  button: number;
+}
+
+/** Live seat ids in clockwise order starting at `from`. */
+function liveOrder(seats: Seat[], from: number): number[] {
+  const n = seats.length;
+  const out: number[] = [];
+  for (let i = 0; i < n; i++) {
+    const idx = (from + i) % n;
+    if (seats[idx]!.stack > 0) out.push(idx);
+  }
+  return out;
+}
+
+function assignPositions(order: number[]): Record<number, Position> {
+  const pos: Record<number, Position> = {};
+  const N = order.length;
+  if (N === 2) {
+    // Heads-up: the button is the small blind.
+    pos[order[0]!] = 'BTN';
+    pos[order[1]!] = 'BB';
+    return pos;
+  }
+  pos[order[0]!] = 'BTN';
+  pos[order[1]!] = 'SB';
+  pos[order[2]!] = 'BB';
+  const tail: Position[] = ['UTG', 'HJ', 'CO'];
+  for (let i = 3; i < N; i++) pos[order[i]!] = tail[i - 3] ?? 'CO';
+  return pos;
+}
+
+/** Build the seating setup. The button snaps to the next live seat. */
+function buildSetup(seats: Seat[], buttonIndex: number): HandSetup {
+  const order = liveOrder(seats, buttonIndex);
+  const N = order.length;
+  const positions = assignPositions(order);
+  const button = order[0]!;
+  if (N === 2) {
+    return { order, positions, sbId: order[0]!, bbId: order[1]!, preflopFirst: order[0]!, button };
+  }
+  return {
+    order,
+    positions,
+    sbId: order[1]!,
+    bbId: order[2]!,
+    preflopFirst: order[3 % N]!,
+    button,
+  };
 }
 
 // ── Hand setup ──────────────────────────────────────────────────────
@@ -139,38 +191,39 @@ function positionForOffset(offset: number, numSeats: number): Position {
 export function createHand(config: HandConfig): GameState {
   const rng = config.rng ?? Math.random;
   const deck = shuffle(makeDeck(), rng);
-  const n = config.seats.length;
 
-  const seats: Seat[] = config.seats.map((sc, i) => {
-    const offset = (i - config.buttonIndex + n) % n;
-    return {
-      id: i,
-      name: sc.name,
-      isHero: sc.isHero,
-      style: sc.style,
-      stack: sc.stack,
-      holeCards: null,
-      status: sc.stack > 0 ? 'active' : 'empty',
-      streetCommitted: 0,
-      committed: 0,
-      hasActed: false,
-      position: positionForOffset(offset, n),
-      lastAction: null,
-    };
-  });
+  const seats: Seat[] = config.seats.map((sc, i) => ({
+    id: i,
+    name: sc.name,
+    isHero: sc.isHero,
+    style: sc.style,
+    stack: sc.stack,
+    holeCards: null,
+    status: sc.stack > 0 ? 'active' : 'empty',
+    streetCommitted: 0,
+    committed: 0,
+    hasActed: false,
+    position: 'BTN',
+    lastAction: null,
+  }));
+
+  // Compute the seating setup over LIVE seats (skips eliminated/empty seats).
+  const setup = buildSetup(seats, config.buttonIndex);
+  for (const seat of seats) {
+    const p = setup.positions[seat.id];
+    if (p) seat.position = p;
+  }
 
   // Deal two hole cards to each live seat.
   for (const seat of seats) {
     if (seat.status === 'active') {
-      const c1 = deck.pop()!;
-      const c2 = deck.pop()!;
-      seat.holeCards = [c1, c2];
+      seat.holeCards = [deck.pop()!, deck.pop()!];
     }
   }
 
   const state: GameState = {
     seats,
-    buttonIndex: config.buttonIndex,
+    buttonIndex: setup.button,
     street: 'preflop',
     board: [],
     deck,
@@ -187,13 +240,8 @@ export function createHand(config: HandConfig): GameState {
     revealed: [],
   };
 
-  postBlinds(state);
+  postBlinds(state, setup);
   return state;
-}
-
-function seatAtOffset(state: GameState, offset: number): Seat {
-  const n = state.seats.length;
-  return state.seats[(state.buttonIndex + offset) % n]!;
 }
 
 function postBlind(seat: Seat, amount: number): void {
@@ -204,15 +252,13 @@ function postBlind(seat: Seat, amount: number): void {
   if (seat.stack === 0) seat.status = 'allin';
 }
 
-function postBlinds(state: GameState): void {
-  const sbSeat = seatAtOffset(state, 1);
-  const bbSeat = seatAtOffset(state, 2);
-  postBlind(sbSeat, state.smallBlind);
-  postBlind(bbSeat, state.bigBlind);
+function postBlinds(state: GameState, setup: HandSetup): void {
+  postBlind(state.seats[setup.sbId]!, state.smallBlind);
+  postBlind(state.seats[setup.bbId]!, state.bigBlind);
   state.currentBet = state.bigBlind;
   state.lastRaiseSize = state.bigBlind;
-  // First to act preflop is UTG (offset 3), or the next live seat.
-  state.toAct = nextToActFrom(state, (state.buttonIndex + 3) % state.seats.length);
+  // Preflop first-to-act per the live-seat setup (UTG, or the button heads-up).
+  state.toAct = nextToActFrom(state, setup.preflopFirst);
 }
 
 // ── Turn order ──────────────────────────────────────────────────────

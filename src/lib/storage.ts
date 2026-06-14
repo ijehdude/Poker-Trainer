@@ -67,4 +67,5 @@ export const StorageKeys = {
   handHistory: 'hand-history',
   stats: 'stats',
   drillProgress: 'drill-progress',
+  session: 'session',
 } as const;

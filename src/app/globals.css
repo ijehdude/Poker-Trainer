@@ -157,4 +157,28 @@ body {
   .pt-safe {
     padding-top: env(safe-area-inset-top);
   }
+
+  /*
+   * Fit-to-viewport container. At/above 1280×720 the page is locked to the
+   * viewport with no scroll (content is sized with clamp() to fit). Below
+   * that threshold we fall back to normal scrolling rather than crushing
+   * content unreadably.
+   */
+  .fit-screen {
+    height: 100dvh;
+    width: 100%;
+    overflow: hidden;
+  }
+  @media (max-width: 1279.98px), (max-height: 719.98px) {
+    .fit-screen {
+      height: auto;
+      min-height: 100dvh;
+      overflow: visible;
+    }
+  }
+
+  /* Min-height-0 helper so flex children can shrink and not force overflow. */
+  .min-h-0 {
+    min-height: 0;
+  }
 }

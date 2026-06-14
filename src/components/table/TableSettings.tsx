@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { useSettings } from '@/store/settingsStore';
+import { useGame } from '@/store/gameStore';
 import { BOT_PROFILES, type BotStyle } from '@/engine/bots';
 import { cn } from '@/lib/cn';
 
@@ -22,14 +23,25 @@ export function TableSettingsButton() {
         ⚙︎ <span className="hidden sm:inline">Settings</span>
       </Button>
       <Modal open={open} onClose={() => setOpen(false)} title="Table & Coach">
-        <TableSettingsForm />
+        <TableSettingsForm onClose={() => setOpen(false)} />
       </Modal>
     </>
   );
 }
 
-export function TableSettingsForm() {
+export function TableSettingsForm({ onClose }: { onClose?: () => void }) {
   const s = useSettings();
+  const startSession = useGame((g) => g.startSession);
+
+  const startNewGame = () => {
+    startSession({
+      styles: s.tableStyles,
+      startingStack: s.startingStackBB * 2,
+      smallBlind: 1,
+      bigBlind: 2,
+    });
+    onClose?.();
+  };
   return (
     <div className="space-y-6">
       {/* Coach mode */}
@@ -142,7 +154,15 @@ export function TableSettingsForm() {
         </div>
       </section>
 
-      <p className="text-xs text-ink-muted">Changes apply to the next hand you deal.</p>
+      <div className="border-t border-panel-border pt-3">
+        <Button variant="gold" block onClick={startNewGame}>
+          Start new game with these settings
+        </Button>
+        <p className="mt-2 text-center text-xs text-ink-muted">
+          Stacks carry over between hands. Starting a new game resets every stack, brings back
+          eliminated players, and clears this session’s history.
+        </p>
+      </div>
     </div>
   );
 }

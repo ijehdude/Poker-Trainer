@@ -70,7 +70,7 @@ export function CoachPanel() {
   }, [game, heroTurn, heroEquity]);
 
   return (
-    <div className="space-y-3">
+    <div className="flex h-full flex-col gap-2 lg:overflow-hidden">
       {/* Coach toggle */}
       <Panel className="flex items-center justify-between p-2.5">
         <span className="px-1 text-xs font-semibold uppercase tracking-wider text-ink-muted">
@@ -94,7 +94,7 @@ export function CoachPanel() {
 
       {/* Live decision overlay */}
       {heroTurn && (
-        <Panel className="space-y-3 p-4">
+        <Panel className="space-y-2 p-3">
           <div>
             <EquityBar
               equity={heroEquity?.equity ?? 0}
@@ -269,7 +269,7 @@ function FeedbackCard() {
   }, [decision, coachMode]);
 
   return (
-    <Panel className="space-y-3 p-4">
+    <Panel className="space-y-2 p-3">
       <div className="flex items-center justify-between">
         <VerdictChip
           verdict={decision.verdict.verdict}

@@ -175,10 +175,21 @@ function Replay({ hand, onBack }: { hand: HandRecord; onBack: () => void }) {
                       />
                     </div>
                     <p className="text-[11px] text-ink-muted">
-                      Best: {d.recommended.type}
-                      {d.recommended.amount > 0
-                        ? ` ${formatAmount(d.recommended.amount)}`
-                        : ''} · {Math.round(d.equity * 100)}% equity
+                      <span className="capitalize text-ink-secondary">You {d.action.type}</span> →{' '}
+                      <span className="capitalize text-accent">
+                        best: {d.recommended.type}
+                        {d.recommended.amount > 0 ? ` ${formatAmount(d.recommended.amount)}` : ''}
+                      </span>
+                      {' · '}
+                      {Math.round(d.equity * 100)}% equity
+                      {d.verdict.evLossBB > 0.01 ? (
+                        <span className="font-semibold text-danger">
+                          {' · '}
+                          EV −{d.verdict.evLossBB.toFixed(2)}bb
+                        </span>
+                      ) : (
+                        <span className="font-semibold text-accent">{' · '}EV optimal</span>
+                      )}
                     </p>
                   </li>
                 ))}

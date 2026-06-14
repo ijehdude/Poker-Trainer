@@ -19,6 +19,8 @@ export interface PlayerStats {
   pfr: number;
   /** Share of optimal/good decisions. */
   accuracy: number;
+  /** Share of decisions where the chosen action differed from the best one. */
+  deviationRate: number;
   evLostBB: number;
   netBB: number;
   bbPer100: number;
@@ -48,6 +50,7 @@ export function computeStats(hands: HandRecord[]): PlayerStats {
   const byStreet = EMPTY_STREETS();
   let decisions = 0;
   let goodCount = 0;
+  let deviations = 0;
   let evLostBB = 0;
   let netChips = 0;
   let bbSum = 0;
@@ -70,6 +73,7 @@ export function computeStats(hands: HandRecord[]): PlayerStats {
     for (const d of hand.decisions) {
       decisions++;
       verdictCounts[d.verdict.verdict]++;
+      if (d.action.type !== d.recommended.type) deviations++;
       if (isGood(d.verdict.verdict)) goodCount++;
       else evLostBB += d.verdict.evLossBB;
       const s = byStreet[d.street];
@@ -89,6 +93,7 @@ export function computeStats(hands: HandRecord[]): PlayerStats {
     vpip: hc > 0 ? vpipHands / hc : 0,
     pfr: hc > 0 ? pfrHands / hc : 0,
     accuracy: decisions > 0 ? goodCount / decisions : 0,
+    deviationRate: decisions > 0 ? deviations / decisions : 0,
     evLostBB,
     netBB,
     bbPer100: hc > 0 ? (netBB / hc) * 100 : 0,

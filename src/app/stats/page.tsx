@@ -56,7 +56,7 @@ export default function StatsPage() {
         ) : (
           <div className="space-y-5">
             {/* Headline stats */}
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
               <Stat
                 label="Win rate"
                 value={`${stats.bbPer100 >= 0 ? '+' : ''}${stats.bbPer100.toFixed(1)}`}
@@ -65,6 +65,12 @@ export default function StatsPage() {
               />
               <Stat label="Hands" value={stats.hands} />
               <Stat label="Accuracy" value={`${Math.round(stats.accuracy * 100)}%`} accent="neon" />
+              <Stat
+                label="Deviated"
+                value={`${Math.round(stats.deviationRate * 100)}%`}
+                sub="from best EV"
+                accent={stats.deviationRate > 0.35 ? 'danger' : 'none'}
+              />
               <Stat label="VPIP" value={`${Math.round(stats.vpip * 100)}%`} />
               <Stat label="PFR" value={`${Math.round(stats.pfr * 100)}%`} />
               <Stat

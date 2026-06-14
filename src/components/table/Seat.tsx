@@ -41,12 +41,13 @@ export function Seat({
   if (seat.status === 'empty') return null;
   const folded = seat.status === 'folded';
   const showFace = seat.isHero || reveal;
-  const cardSize = compact ? 'xs' : seat.isHero ? 'sm' : 'xs';
+  // Hero's own cards are face-up and noticeably larger than opponents' backs.
+  const cardSize = seat.isHero ? (compact ? 'sm' : 'lg') : 'xs';
 
   return (
-    <div className={cn('flex flex-col items-center gap-1', folded && 'opacity-50')}>
+    <div className={cn('flex flex-col items-center gap-1', folded && 'opacity-45 saturate-[0.4]')}>
       {/* Hole cards */}
-      <div className="flex -space-x-1.5">
+      <div className={cn('flex', seat.isHero ? 'gap-1' : '-space-x-1.5')}>
         {seat.holeCards ? (
           seat.holeCards.map((c, i) => (
             <PlayingCard
@@ -55,7 +56,16 @@ export function Seat({
               faceDown={!showFace}
               size={cardSize}
               dimmed={folded}
-              className={i === 1 ? 'rotate-[6deg]' : '-rotate-[6deg]'}
+              highlight={seat.isHero && isToAct}
+              className={
+                seat.isHero
+                  ? i === 1
+                    ? 'rotate-[3deg]'
+                    : '-rotate-[3deg]'
+                  : i === 1
+                    ? 'rotate-[6deg]'
+                    : '-rotate-[6deg]'
+              }
             />
           ))
         ) : (
@@ -83,7 +93,7 @@ export function Seat({
         <div className="min-w-0 leading-tight">
           <div className="flex items-center gap-1">
             <span className="truncate text-xs font-semibold text-ink">{seat.name}</span>
-            <span className="rounded bg-panel-raised px-1 text-[9px] font-medium text-ink-muted">
+            <span className="rounded bg-black/55 px-1.5 text-[10px] font-bold tracking-wide text-ink ring-1 ring-white/15">
               {seat.position}
             </span>
           </div>
@@ -119,7 +129,9 @@ export function Seat({
             {ACTION_LABEL[seat.lastAction.type]}
           </span>
         ) : folded ? (
-          <span className="text-[10px] uppercase tracking-wide text-ink-muted">Folded</span>
+          <span className="bg-ink/10 rounded-full px-2 text-[10px] font-bold uppercase tracking-wider text-ink-secondary ring-1 ring-white/10">
+            Folded
+          </span>
         ) : null}
       </div>
     </div>

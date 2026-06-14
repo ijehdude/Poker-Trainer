@@ -21,7 +21,7 @@ export function Board({
     size === 'lg'
       ? 'h-24 w-16 rounded-lg'
       : size === 'sm'
-        ? 'h-13 w-9 rounded-md'
+        ? 'h-[3.25rem] w-9 rounded-md'
         : 'h-[4.4rem] w-12 rounded-md';
   return (
     <div className="flex items-center justify-center gap-1.5 sm:gap-2">
@@ -49,7 +49,7 @@ export function Board({
       {Array.from({ length: Math.max(0, 5 - cards.length) }).map((_, i) => (
         <div
           key={`ph-${i}`}
-          className={`${ph} border-felt-light/20 border border-dashed`}
+          className={`${ph} border-felt-light/30 border-2 border-dashed bg-black/10`}
           aria-hidden
         />
       ))}

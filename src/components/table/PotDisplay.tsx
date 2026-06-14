@@ -20,7 +20,7 @@ export function PotDisplay({ amount, bigBlind }: { amount: number; bigBlind: num
         </motion.span>
         {bigBlind > 0 && (
           <span className="nums text-[10px] text-ink-muted">
-            {(amount / bigBlind).toFixed(1)}bb
+            (≈ {(amount / bigBlind).toFixed(1)} bb)
           </span>
         )}
       </div>

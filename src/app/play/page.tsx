@@ -73,24 +73,8 @@ export default function PlayPage() {
 
   const heroTurn = game ? isHeroTurn(game) : false;
   const la = legal();
-
-  // Keyboard shortcuts for hero actions (accessibility & speed).
-  useEffect(() => {
-    if (!heroTurn) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-      const k = e.key.toLowerCase();
-      if (k === 'f' && la.canFold) handleHeroAct({ type: 'fold' });
-      else if (k === 'c') {
-        if (la.canCheck) handleHeroAct({ type: 'check' });
-        else if (la.canCall) handleHeroAct({ type: 'call' });
-      } else if ((k === 'r' || k === 'b') && la.canRaise) {
-        handleHeroAct({ type: la.isBet ? 'bet' : 'raise', amount: la.minRaiseTo });
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [heroTurn, la, handleHeroAct]);
+  // Hero action hotkeys (F/C/R) live inside <Controls> so R can focus the
+  // sizing input. No global handler needed here.
 
   return (
     <div className="min-h-dvh">

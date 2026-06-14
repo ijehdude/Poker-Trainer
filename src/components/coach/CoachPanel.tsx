@@ -7,11 +7,46 @@ import { VerdictChip } from './VerdictChip';
 import { CoachChat } from './CoachChat';
 import { useGame } from '@/store/gameStore';
 import { useSettings } from '@/store/settingsStore';
-import { evaluateDecision } from '@/engine/strategy';
+import { evaluateDecision, type StrategySolution } from '@/engine/strategy';
 import { buildSeatContext } from '@/engine/decision';
+import { openingRangeNote } from '@/engine/ranges';
 import { getCoach, decisionToCoachInput, type CoachFeedback } from '@/coach';
+import { Tooltip } from '@/components/ui/Tooltip';
 import { formatAmount } from '@/components/table/Chip';
 import { cn } from '@/lib/cn';
+
+/**
+ * A short, plain-language reason the recommended action is best — written
+ * for a learner so "27% win" and "Raise = best" don't read as a
+ * contradiction. Highlights fold equity / initiative when equity is low.
+ */
+function recommendedWhy(solution: StrategySolution): string {
+  const f = solution.factors;
+  const rec = solution.recommended.type;
+  const eqPct = Math.round(f.equity * 100);
+  const needPct = Math.round(f.breakEven * 100);
+  const facingBet = needPct > 0;
+
+  if (rec === 'fold') {
+    return `Your ~${eqPct}% equity is below the ~${needPct}% the price demands, so folding loses the least.`;
+  }
+  if (rec === 'call') {
+    return `At ~${eqPct}% equity you clear the ~${needPct}% you need, so calling realizes a profit.`;
+  }
+  if (rec === 'bet' || rec === 'raise') {
+    if (f.equity < 0.45) {
+      return `Even with only ~${eqPct}% showdown equity, ${rec === 'bet' ? 'betting' : 'raising'} is best: fold equity and initiative win the pot often enough to be +EV.`;
+    }
+    if (facingBet) {
+      return `With ~${eqPct}% equity plus fold equity, raising for value/protection beats just calling.`;
+    }
+    return `Strong equity (~${eqPct}%) on a ${f.boardTexture.descriptor} board — bet to build the pot and deny equity.`;
+  }
+  if (rec === 'check') {
+    return `Checking realizes your ~${eqPct}% equity without bloating the pot when betting gains little.`;
+  }
+  return '';
+}
 
 /**
  * The coaching side-panel. While it's the hero's turn it shows the live
@@ -60,12 +95,24 @@ export function CoachPanel() {
       {/* Live decision overlay */}
       {heroTurn && (
         <Panel className="space-y-3 p-4">
-          <EquityBar
-            equity={heroEquity?.equity ?? 0}
-            loading={equityLoading && !heroEquity}
-            win={heroEquity?.win}
-            tie={heroEquity?.tie}
-          />
+          <div>
+            <EquityBar
+              equity={heroEquity?.equity ?? 0}
+              loading={equityLoading && !heroEquity}
+              win={heroEquity?.win}
+              tie={heroEquity?.tie}
+              breakEven={liveSolution?.factors.breakEven}
+            />
+            <p className="mt-1.5 flex items-start gap-1 text-[11px] leading-snug text-ink-muted">
+              <Tooltip
+                content="Win % is your raw equity vs the opponents' range — how often you'd win at showdown. The Action EV list below also includes fold equity (how often they fold), which is why a low-equity hand can still be a +EV bet or raise."
+                side="bottom"
+              >
+                <span className="cursor-help font-bold text-accent">ⓘ</span>
+              </Tooltip>
+              <span>Win % is equity vs the field; Action EV below also counts fold equity.</span>
+            </p>
+          </div>
           {liveSolution && (
             <>
               <div className="grid grid-cols-2 gap-2 text-xs">
@@ -80,7 +127,20 @@ export function CoachPanel() {
                   }
                 />
               </div>
-              <ActionEVTable solution={liveSolution} bigBlind={game!.bigBlind} />
+              <ActionEVTable
+                solution={liveSolution}
+                bigBlind={game!.bigBlind}
+                why={recommendedWhy(liveSolution)}
+              />
+              {liveSolution.factors.street === 'preflop' &&
+                liveSolution.factors.potContext === 'unopened' && (
+                  <RangeContext
+                    note={openingRangeNote(
+                      liveSolution.factors.position,
+                      liveSolution.factors.handClass,
+                    )}
+                  />
+                )}
             </>
           )}
         </Panel>
@@ -122,42 +182,63 @@ function Readout({
 function ActionEVTable({
   solution,
   bigBlind,
+  why,
 }: {
   solution: ReturnType<typeof evaluateDecision>;
   bigBlind: number;
+  why?: string;
 }) {
   const best = solution.bestEV;
   const sorted = [...solution.actions].sort((a, b) => b.ev - a.ev);
   return (
     <div>
-      <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-ink-muted">
-        Action EV
+      <div className="mb-1 flex items-center justify-between text-[10px] font-semibold uppercase tracking-wider text-ink-muted">
+        <span>Action EV</span>
+        <span className="text-ink-muted/70 normal-case">relative to best</span>
       </div>
       <div className="space-y-1">
         {sorted.map((a) => {
           const delta = (a.ev - best) / bigBlind;
           const isBest = Math.abs(a.ev - best) < 1e-6;
           return (
-            <div
-              key={a.type + a.amount}
-              className={cn(
-                'flex items-center justify-between rounded-md px-2.5 py-1.5 text-xs',
-                isBest ? 'bg-accent/15 ring-accent/40 ring-1' : 'bg-panel-raised',
-              )}
-            >
-              <span className="font-semibold capitalize">
-                {a.label}
-                {isBest && <span className="ml-1.5 text-[10px] text-accent">best</span>}
-              </span>
-              <span
-                className={cn('nums font-medium', isBest ? 'text-accent' : 'text-ink-secondary')}
+            <div key={a.type + a.amount}>
+              <div
+                className={cn(
+                  'flex items-center justify-between rounded-md px-2.5 py-1.5 text-xs',
+                  isBest ? 'bg-accent/15 ring-accent/40 ring-1' : 'bg-panel-raised',
+                )}
               >
-                {isBest ? `${formatAmount(a.ev / bigBlind)}bb` : `${delta.toFixed(2)}bb`}
-              </span>
+                <span className="font-semibold capitalize">
+                  {a.label}
+                  {isBest && <span className="ml-1.5 text-[10px] text-accent">best</span>}
+                </span>
+                <span
+                  className={cn('nums font-medium', isBest ? 'text-accent' : 'text-ink-secondary')}
+                >
+                  {isBest ? `${formatAmount(a.ev / bigBlind)}bb` : `${delta.toFixed(2)}bb`}
+                </span>
+              </div>
+              {/* Inline plain-language "why" directly under the best action */}
+              {isBest && why && (
+                <p className="mt-1 px-1 text-[11px] leading-snug text-ink-secondary">
+                  <span className="font-semibold text-accent">Why: </span>
+                  {why}
+                </p>
+              )}
             </div>
           );
         })}
       </div>
+    </div>
+  );
+}
+
+function RangeContext({ note }: { note: string | null }) {
+  if (!note) return null;
+  return (
+    <div className="flex items-start gap-1.5 rounded-md border border-panel-border bg-panel-raised px-2.5 py-1.5 text-[11px] leading-snug text-ink-secondary">
+      <span className="text-accent-gold">◆</span>
+      <span>{note}</span>
     </div>
   );
 }

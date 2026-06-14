@@ -6,10 +6,17 @@ import type { ActionType, Street } from '@/engine/types';
 import type { Verdict } from '@/engine/verdict';
 
 /** Minimal decision builder — only the fields computeStats reads. */
-function dec(street: Street, type: ActionType, verdict: Verdict, evLossBB = 0): RecordedDecision {
+function dec(
+  street: Street,
+  type: ActionType,
+  verdict: Verdict,
+  evLossBB = 0,
+  recommended: ActionType = type,
+): RecordedDecision {
   return {
     street,
     action: { type, amount: 0 },
+    recommended: { type: recommended, amount: 0 },
     verdict: { verdict, label: verdict, evLoss: evLossBB, evLossBB },
   } as unknown as RecordedDecision;
 }
@@ -64,6 +71,17 @@ describe('computeStats', () => {
     expect(s.byStreet.turn.total).toBe(1);
     expect(s.byStreet.turn.correct).toBe(0);
     expect(s.byStreet.preflop.correct).toBe(1);
+  });
+
+  it('tracks deviation rate (chosen action != recommended)', () => {
+    const s = computeStats([
+      hand(0, [
+        dec('preflop', 'raise', 'optimal', 0, 'raise'), // matches → not a deviation
+        dec('flop', 'call', 'mistake', 1, 'fold'), // differs → deviation
+        dec('turn', 'check', 'blunder', 3, 'bet'), // differs → deviation
+      ]),
+    ]);
+    expect(s.deviationRate).toBeCloseTo(2 / 3, 6);
   });
 
   it('expresses win rate in bb/100', () => {

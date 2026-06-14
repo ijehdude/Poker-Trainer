@@ -229,3 +229,17 @@ export function openingRange(position: Position): Set<string> {
 export function isOpen(position: Position, handClass: string): boolean {
   return handStrengthPercentile(handClass) <= RFI_PERCENT[position];
 }
+
+/**
+ * One-line, learner-friendly note describing what range the recommended
+ * first-in action represents from a position (e.g. "Standard CO open — top
+ * ~27% of hands"). Returns null when there's no opening range (the BB).
+ */
+export function openingRangeNote(position: Position, handClass: string): string | null {
+  const pctOpen = Math.round(RFI_PERCENT[position] * 100);
+  if (pctOpen === 0) return null;
+  if (isOpen(position, handClass)) {
+    return `Standard ${position} open — ${handClass} is in the top ~${pctOpen}% of hands you raise first-in.`;
+  }
+  return `Below a standard ${position} opening range (top ~${pctOpen}%) — a first-in fold.`;
+}

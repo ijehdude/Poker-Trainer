@@ -92,6 +92,18 @@ const PATTERNS: Pattern[] = [
     relevant: (d) => d.board.length >= 3 && d.toCall === 0,
     hit: (d) => d.action.type === 'check' && isBad(d.verdict.verdict),
   },
+  {
+    id: 'wrong-sizing',
+    title: 'Right action, wrong size',
+    detail: (c, s) =>
+      `You bet or raised the correct line but a costly size in ${c} of ${s} aggressive spots. Match your sizing to the board and your range — overbetting thin or underbetting your value both leak EV.`,
+    // Same action type as the solver wanted (so not a wrong-action error),
+    // but enough EV lost to be a sizing problem.
+    relevant: (d) =>
+      (d.action.type === 'bet' || d.action.type === 'raise') &&
+      d.recommended.type === d.action.type,
+    hit: (d) => d.recommended.type === d.action.type && isBad(d.verdict.verdict),
+  },
 ];
 
 function trendOf(hits: boolean[]): Leak['trend'] {

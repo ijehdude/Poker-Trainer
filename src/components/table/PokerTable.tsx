@@ -7,6 +7,7 @@ import { Seat } from './Seat';
 import { Board } from './Board';
 import { PotDisplay } from './PotDisplay';
 import { ChipStack } from './Chip';
+import { cn } from '@/lib/cn';
 
 /** Seat anchor points (percent of the table box). Hero is seat 0 at bottom. */
 const SEAT_POS: { x: number; y: number }[] = [
@@ -42,12 +43,6 @@ export function PokerTable({ game, compact = false }: { game: GameState; compact
       <div className="ring-felt-light/30 absolute inset-[6%] rounded-[44%] bg-felt-radial shadow-deep ring-1 sm:rounded-[46%]">
         <div className="absolute inset-2 rounded-[44%] ring-1 ring-inset ring-black/40 sm:inset-3 sm:rounded-[46%]" />
         <div className="absolute inset-0 rounded-[44%] bg-neon-sheen opacity-30 sm:rounded-[46%]" />
-        {/* Center logo watermark */}
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-felt-light/15 select-none font-display text-4xl font-bold sm:text-6xl">
-            ♠
-          </span>
-        </div>
       </div>
 
       {/* Pot + board cluster (center) */}
@@ -55,6 +50,7 @@ export function PokerTable({ game, compact = false }: { game: GameState; compact
         className="absolute z-20 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-2"
         style={{ left: '50%', top: '44%' }}
       >
+        <StreetIndicator street={game.street} />
         <PotDisplay amount={pot} bigBlind={game.bigBlind} />
         <Board cards={game.board} size={compact ? 'sm' : 'md'} />
       </div>
@@ -95,6 +91,42 @@ export function PokerTable({ game, compact = false }: { game: GameState; compact
               compact={compact}
             />
           </motion.div>
+        );
+      })}
+    </div>
+  );
+}
+
+const STREETS: GameState['street'][] = ['preflop', 'flop', 'turn', 'river'];
+const STREET_LABEL: Record<GameState['street'], string> = {
+  preflop: 'Preflop',
+  flop: 'Flop',
+  turn: 'Turn',
+  river: 'River',
+};
+
+/** Compact, obvious street progress indicator shown above the pot. */
+function StreetIndicator({ street }: { street: GameState['street'] }) {
+  const activeIndex = STREETS.indexOf(street);
+  return (
+    <div className="flex items-center gap-1 rounded-full border border-panel-border bg-black/50 px-1.5 py-1 backdrop-blur">
+      {STREETS.map((s, i) => {
+        const active = i === activeIndex;
+        const done = i < activeIndex;
+        return (
+          <span
+            key={s}
+            className={cn(
+              'rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide transition-colors',
+              active
+                ? 'bg-accent text-ink-inverse shadow-neon'
+                : done
+                  ? 'text-accent/70'
+                  : 'text-ink-muted',
+            )}
+          >
+            {active ? STREET_LABEL[s] : STREET_LABEL[s].slice(0, 1)}
+          </span>
         );
       })}
     </div>

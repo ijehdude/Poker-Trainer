@@ -14,7 +14,7 @@ const SIZES: Record<CardSize, { box: string; rank: string; pip: string; center: 
     pip: 'text-[9px]',
     center: 'text-base',
   },
-  sm: { box: 'w-9 h-13 rounded-md', rank: 'text-sm', pip: 'text-[11px]', center: 'text-xl' },
+  sm: { box: 'w-9 h-[3.25rem] rounded-md', rank: 'text-sm', pip: 'text-[11px]', center: 'text-xl' },
   md: { box: 'w-12 h-[4.4rem] rounded-md', rank: 'text-lg', pip: 'text-sm', center: 'text-2xl' },
   lg: { box: 'w-16 h-24 rounded-lg', rank: 'text-2xl', pip: 'text-lg', center: 'text-4xl' },
 };

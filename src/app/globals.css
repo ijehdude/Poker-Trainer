@@ -1,0 +1,160 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ──────────────────────────────────────────────────────────────────
+   Design tokens as CSS custom properties.
+   Mirrors src/design/tokens.ts — keep the two in sync.
+   ────────────────────────────────────────────────────────────────── */
+:root {
+  --bg: #0a0e0c;
+
+  --felt-900: #0b2018;
+  --felt-800: #0e2a1f;
+  --felt-700: #123528;
+  --felt-600: #16412f;
+  --felt-light: #1d5440;
+
+  --panel-base: #111815;
+  --panel-raised: #16201b;
+  --panel-border: #22302a;
+
+  --text-primary: #f2f6f3;
+  --text-secondary: #a9b8b0;
+  --text-muted: #6f807a;
+  --text-inverse: #06100b;
+
+  --accent-neon: #3ef2a1;
+  --accent-neon-dim: #1fae72;
+  --accent-glow: #5dffba;
+  --accent-gold: #e7c46a;
+  --accent-gold-dim: #b8923f;
+
+  --verdict-optimal: #3ef2a1;
+  --verdict-good: #7fd4ff;
+  --verdict-questionable: #ffd166;
+  --verdict-mistake: #ff9f45;
+  --verdict-blunder: #ff5d6c;
+
+  --equity-high: #3ef2a1;
+  --equity-mid: #ffd166;
+  --equity-low: #ff5d6c;
+  --equity-track: #1a241f;
+
+  --state-danger: #ff5d6c;
+  --state-warning: #ffd166;
+  --state-success: #3ef2a1;
+  --state-info: #7fd4ff;
+
+  --card-red: #d23b4e;
+  --card-black: #15211c;
+  --card-face: #f7f9f8;
+}
+
+* {
+  border-color: var(--panel-border);
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--text-primary);
+  font-family:
+    var(--font-sans),
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  /* Ambient cinematic background glow behind the app. */
+  background-image:
+    radial-gradient(900px 600px at 78% -8%, rgba(62, 242, 161, 0.06), transparent 60%),
+    radial-gradient(800px 700px at 8% 108%, rgba(231, 196, 106, 0.05), transparent 55%);
+  background-attachment: fixed;
+  min-height: 100dvh;
+}
+
+/* Respect users who reduce motion: neutralize animations/transitions. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Visible, on-brand focus ring for keyboard users. */
+:focus-visible {
+  outline: 2px solid var(--accent-neon);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Custom slim scrollbars to match the dark theme. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--panel-border) transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--panel-border);
+  border-radius: 999px;
+}
+
+@layer components {
+  /* Frosted glass panel used throughout side panels & modals. */
+  .glass {
+    background: linear-gradient(180deg, rgba(22, 32, 27, 0.82), rgba(17, 24, 21, 0.82));
+    backdrop-filter: blur(12px) saturate(120%);
+    border: 1px solid var(--panel-border);
+  }
+
+  /* Skeleton shimmer for loading states. */
+  .skeleton {
+    background: linear-gradient(
+      90deg,
+      var(--panel-base) 0%,
+      var(--panel-raised) 50%,
+      var(--panel-base) 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.6s linear infinite;
+  }
+
+  /* Tabular numbers for stats / equity readouts. */
+  .nums {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum';
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  .neon-text {
+    text-shadow: 0 0 18px rgba(62, 242, 161, 0.45);
+  }
+  .gold-text {
+    color: var(--accent-gold);
+    text-shadow: 0 0 14px rgba(231, 196, 106, 0.3);
+  }
+  /* Safe-area padding for mobile notches / home indicators. */
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
+  }
+}

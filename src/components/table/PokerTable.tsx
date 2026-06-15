@@ -4,10 +4,11 @@ import { motion } from 'framer-motion';
 import type { GameState } from '@/engine/gameEngine';
 import { currentPot } from '@/engine/gameEngine';
 import { describeWinner } from './winnerText';
-import { Seat } from './Seat';
+import { Seat, type SeatAlign } from './Seat';
 import { Board } from './Board';
 import { PotDisplay } from './PotDisplay';
 import { ChipStack } from './Chip';
+import { cn } from '@/lib/cn';
 
 /**
  * Seat anchor points (percent of the table box), for a 5-handed table.
@@ -15,16 +16,17 @@ import { ChipStack } from './Chip';
  * button. The four opponents are distributed symmetrically left/right, which
  * leaves the top-center slot empty (reserved for the pot — see below).
  */
-// Hero is fixed at bottom-center (x:50). The four opponents sit right on the
-// felt RIM — two at the widest point (the across-the-table seats) and two
-// lower, following the oval down toward the hero — mirrored left/right so the
-// table reads symmetrically. The top-center slot stays empty for the pot.
+// Hero is fixed at bottom-center (x:50). Side seats anchor on the felt RIM:
+// left seats place their LEFT edge here (avatar on the rail, content extends
+// right); right seats place their RIGHT edge here (content extends left). This
+// is what keeps the pods on the rim without clipping the table edge. Mirrored
+// left/right; the top-center slot stays empty for the pot.
 const SEAT_POS: { x: number; y: number }[] = [
-  { x: 50, y: 78 }, // 0 hero — fixed bottom-center
-  { x: 18, y: 75 }, // 1 lower-left
-  { x: 7, y: 46 }, // 2 mid-left (on the rim)
-  { x: 93, y: 46 }, // 3 mid-right (on the rim)
-  { x: 82, y: 75 }, // 4 lower-right
+  { x: 50, y: 78 }, // 0 hero — fixed bottom-center (centered)
+  { x: 12, y: 75 }, // 1 lower-left
+  { x: 5, y: 46 }, // 2 mid-left (left edge on the rim)
+  { x: 95, y: 46 }, // 3 mid-right (right edge on the rim)
+  { x: 88, y: 75 }, // 4 lower-right
 ];
 
 /** Where each seat's bet chips sit (pulled toward the pot/board). */
@@ -120,16 +122,31 @@ export function PokerTable({
         if (seat.status === 'empty') return null;
         const pos = SEAT_POS[seat.id];
         if (!pos) return null;
+        // Side seats anchor on the rim and grow inward; the hero is centered.
+        const align: SeatAlign = seat.isHero
+          ? 'center'
+          : pos.x < 40
+            ? 'left'
+            : pos.x > 60
+              ? 'right'
+              : 'center';
+        const xClass =
+          align === 'left'
+            ? 'translate-x-0'
+            : align === 'right'
+              ? '-translate-x-full'
+              : '-translate-x-1/2';
         return (
           <motion.div
             key={`seat-${seat.id}`}
-            className="absolute z-40 -translate-x-1/2 -translate-y-1/2"
+            className={cn('absolute z-40 -translate-y-1/2', xClass)}
             style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
           >
             <Seat
               seat={seat}
+              align={align}
               isToAct={game.toAct === seat.id && game.status === 'betting'}
               isButton={game.buttonIndex === seat.id}
               reveal={game.revealed.includes(seat.id)}

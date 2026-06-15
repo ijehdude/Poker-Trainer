@@ -18,7 +18,15 @@ export function AppHeader({ right }: { right?: React.ReactNode }) {
   return (
     <header className="bg-bg/80 pt-safe sticky top-0 z-50 border-b border-panel-border backdrop-blur-md">
       <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-3 px-4">
-        <Wordmark />
+        <div className="flex items-center gap-2">
+          <Wordmark />
+          <span
+            className="font-mono text-[10px] text-ink-muted/70"
+            title="Live build commit — confirms which version is deployed"
+          >
+            build:{process.env.NEXT_PUBLIC_COMMIT ?? 'dev'}
+          </span>
+        </div>
         <nav className="hidden items-center gap-1 md:flex">
           {NAV.map((item) => {
             const active = pathname.startsWith(item.href);

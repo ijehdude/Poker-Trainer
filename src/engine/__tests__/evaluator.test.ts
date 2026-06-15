@@ -102,3 +102,47 @@ describe('evaluator — tiebreakers', () => {
     );
   });
 });
+
+describe('evaluator — showdown ranking (7-card, hole + board)', () => {
+  const BOARD = 'Ah Ad 2c Tc Jc';
+
+  it('repro: three aces beats two pair (Nova vs Riot) — no false tie', () => {
+    // Board Ah Ad 2c Tc Jc. Nova=As 3c → trips aces. Riot=Kc Th → two pair A+T.
+    const nova = evaluateCards(parseCards(`As 3c ${BOARD}`));
+    const riot = evaluateCards(parseCards(`Kc Th ${BOARD}`));
+    expect(nova.category).toBe(HandCategory.ThreeOfAKind);
+    expect(riot.category).toBe(HandCategory.TwoPair);
+    expect(nova.score).toBeGreaterThan(riot.score);
+    expect(compareHands(parseCards(`As 3c ${BOARD}`), parseCards(`Kc Th ${BOARD}`))).toBeGreaterThan(
+      0,
+    );
+  });
+
+  it('trips beat two pair in general', () => {
+    expect(
+      compareHands(parseCards('7c 7d 7h Ks 4c 2d 3s'), parseCards('Ac Ad Ks Kd 9c 4h 2s')),
+    ).toBeGreaterThan(0);
+  });
+
+  it('four same-suit cards are NOT a flush (a flush needs 5)', () => {
+    // Only four spades; the rest off-suit and unconnected → high card, not flush.
+    const v = evaluateCards(parseCards('As Ks 7s 4s 9h 2c 3d'));
+    expect(v.category).not.toBe(HandCategory.Flush);
+    expect(v.category).toBe(HandCategory.HighCard);
+  });
+
+  it('the board plays for everyone → genuine tie (equal score)', () => {
+    // Board is the broadway straight; neither set of hole cards improves on it.
+    const board = 'Ah Kh Qd Jc Ts';
+    const a = compareHands(parseCards(`2c 3d ${board}`), parseCards(`4s 5h ${board}`));
+    expect(a).toBe(0);
+  });
+
+  it('a kicker decides the pot when both make the same pair', () => {
+    // Both pair tens on the board; Player A has an ace kicker, B a king kicker.
+    const board = 'Tc Td 7h 4s 2c';
+    expect(
+      compareHands(parseCards(`Ah 3d ${board}`), parseCards(`Kh 5d ${board}`)),
+    ).toBeGreaterThan(0);
+  });
+});

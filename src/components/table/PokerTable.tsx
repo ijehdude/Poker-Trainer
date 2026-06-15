@@ -16,20 +16,20 @@ import { ChipStack } from './Chip';
  * leaves the top-center slot empty (reserved for the pot — see below).
  */
 const SEAT_POS: { x: number; y: number }[] = [
-  { x: 50, y: 84 }, // 0 hero — fixed bottom-center
-  { x: 88, y: 58 }, // 1 right-lower
-  { x: 74, y: 16 }, // 2 right-upper
-  { x: 26, y: 16 }, // 3 left-upper
-  { x: 12, y: 58 }, // 4 left-lower
+  { x: 50, y: 78 }, // 0 hero — fixed bottom-center (pulled up off the action bar)
+  { x: 87, y: 60 }, // 1 right-lower (hugs the rail)
+  { x: 82, y: 24 }, // 2 right-upper
+  { x: 18, y: 24 }, // 3 left-upper
+  { x: 13, y: 60 }, // 4 left-lower
 ];
 
 /** Where each seat's bet chips sit (pulled toward the pot/board). */
 const BET_POS: { x: number; y: number }[] = [
-  { x: 50, y: 68 }, // hero
-  { x: 72, y: 50 },
-  { x: 64, y: 30 },
-  { x: 36, y: 30 },
-  { x: 28, y: 50 },
+  { x: 50, y: 61 }, // hero
+  { x: 71, y: 52 },
+  { x: 67, y: 34 },
+  { x: 33, y: 34 },
+  { x: 29, y: 52 },
 ];
 
 function winningsFor(game: GameState, seatId: number): number {

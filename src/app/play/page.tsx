@@ -91,6 +91,22 @@ export default function PlayPage() {
   // Hero action hotkeys (F/C/R) live inside <Controls> so R can focus the
   // sizing input. No global handler needed here.
 
+  // Between hands: Space or Enter deals the next hand (or starts a new game
+  // when the session has ended). Ignored while typing in the coach chat.
+  useEffect(() => {
+    if (!game || game.status !== 'complete') return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.key === 'Enter' || e.key === ' ' || e.code === 'Space') {
+        e.preventDefault();
+        if (sessionStatus === 'active') deal();
+        else startNew();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [game, sessionStatus, deal, startNew]);
+
   const dock = game ? (
     <div className="pb-safe shrink-0 px-1 pb-[clamp(0.5rem,2vh,1rem)] pt-1">
       <div className="mx-auto flex min-h-[clamp(3.25rem,8vh,4.5rem)] max-w-md items-center justify-center">
@@ -111,6 +127,9 @@ export default function PlayPage() {
             ) : (
               <Button size="lg" block onClick={deal}>
                 Deal next hand →
+                <kbd className="ml-2 hidden rounded border border-black/25 bg-black/15 px-1.5 text-[10px] font-bold text-current opacity-80 sm:inline-block">
+                  Space
+                </kbd>
               </Button>
             )
           ) : heroTurn ? (
@@ -149,7 +168,7 @@ export default function PlayPage() {
               <StreetIndicator street={game.street} />
             </div>
           )}
-          <div className="flex min-h-0 flex-1 items-center justify-center">
+          <div className="flex min-h-0 flex-1 items-center justify-center pb-[clamp(0.5rem,3vh,2rem)]">
             {!started || !game ? <EmptyTable onDeal={deal} /> : <PokerTable game={game} fill />}
           </div>
           {dock}
@@ -177,6 +196,9 @@ function EndState({
       <p className="text-xs text-ink-secondary">{subtitle}</p>
       <Button size="lg" block onClick={onNewGame}>
         Start new game
+        <kbd className="ml-2 hidden rounded border border-black/25 bg-black/15 px-1.5 text-[10px] font-bold text-current opacity-80 sm:inline-block">
+          Space
+        </kbd>
       </Button>
     </div>
   );

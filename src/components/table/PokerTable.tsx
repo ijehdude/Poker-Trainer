@@ -15,25 +15,25 @@ import { ChipStack } from './Chip';
  * button. The four opponents are distributed symmetrically left/right, which
  * leaves the top-center slot empty (reserved for the pot — see below).
  */
-// Hero is fixed at bottom-center. The four opponents are placed at the SAME
-// distance from the table center (each is exactly 32% x / 22% y, or 38% x /
-// 8% y, from center → identical radius), mirrored left/right, so no seat is
-// "more central" than another. The top-center slot stays empty for the pot.
+// Hero is fixed at bottom-center (x:50). The four opponents sit right on the
+// felt RIM — two at the widest point (the across-the-table seats) and two
+// lower, following the oval down toward the hero — mirrored left/right so the
+// table reads symmetrically. The top-center slot stays empty for the pot.
 const SEAT_POS: { x: number; y: number }[] = [
   { x: 50, y: 78 }, // 0 hero — fixed bottom-center
-  { x: 18, y: 72 }, // 1 lower-left
-  { x: 12, y: 42 }, // 2 upper-left
-  { x: 88, y: 42 }, // 3 upper-right
-  { x: 82, y: 72 }, // 4 lower-right
+  { x: 18, y: 75 }, // 1 lower-left
+  { x: 7, y: 46 }, // 2 mid-left (on the rim)
+  { x: 93, y: 46 }, // 3 mid-right (on the rim)
+  { x: 82, y: 75 }, // 4 lower-right
 ];
 
 /** Where each seat's bet chips sit (pulled toward the pot/board). */
 const BET_POS: { x: number; y: number }[] = [
-  { x: 50, y: 61 }, // hero
-  { x: 32, y: 62 }, // 1 lower-left
-  { x: 28, y: 46 }, // 2 upper-left
-  { x: 72, y: 46 }, // 3 upper-right
-  { x: 68, y: 62 }, // 4 lower-right
+  { x: 50, y: 62 }, // hero
+  { x: 32, y: 66 }, // 1 lower-left
+  { x: 24, y: 48 }, // 2 mid-left
+  { x: 76, y: 48 }, // 3 mid-right
+  { x: 68, y: 66 }, // 4 lower-right
 ];
 
 function winningsFor(game: GameState, seatId: number): number {

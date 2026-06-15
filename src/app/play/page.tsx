@@ -108,7 +108,7 @@ export default function PlayPage() {
   }, [game, sessionStatus, deal, startNew]);
 
   const dock = game ? (
-    <div className="pb-safe shrink-0 px-1 pb-[clamp(0.5rem,2vh,1rem)] pt-1">
+    <div data-testid="action-bar" className="pb-safe shrink-0 px-1 pb-[clamp(0.5rem,2vh,1rem)] pt-1">
       <div className="mx-auto flex min-h-[clamp(3.25rem,8vh,4.5rem)] max-w-md items-center justify-center">
         <div className="w-full">
           {game.status === 'complete' ? (
@@ -175,7 +175,9 @@ export default function PlayPage() {
         </section>
 
         {/* Coach / equity side panel (below table on mobile, sidebar on desktop) */}
-        <aside className="min-h-0 lg:overflow-hidden">{game && <CoachPanel />}</aside>
+        <aside data-testid="coach-panel" className="min-h-0 lg:overflow-hidden">
+          {game && <CoachPanel />}
+        </aside>
       </main>
     </div>
   );

@@ -1,42 +1,75 @@
 'use client';
 
+import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import type { GameState } from '@/engine/gameEngine';
 import { currentPot } from '@/engine/gameEngine';
 import { describeWinner } from './winnerText';
-import { Seat, type SeatAlign } from './Seat';
+import { Seat } from './Seat';
 import { Board } from './Board';
 import { PotDisplay } from './PotDisplay';
 import { ChipStack } from './Chip';
-import { cn } from '@/lib/cn';
 
 /**
- * Seat anchor points (percent of the table box), for a 5-handed table.
- * Hero is seat 0 and is LOCKED at bottom-center — it never moves with the
- * button. The four opponents are distributed symmetrically left/right, which
- * leaves the top-center slot empty (reserved for the pot — see below).
+ * Seat geometry — ONE parametric ellipse function, no per-seat pixel offsets.
+ *
+ * Every seat (and its bet chips) is derived from the felt ellipse's measured
+ * box:  point(θ) = (cx + rx·cosθ, cy + ry·sinθ).  Seat i sits at
+ *   θ_i = 90° + i·(360/N),
+ * so seat 0 (the hero) points straight down (bottom-center) and the rest are
+ * spread evenly and symmetrically about the vertical axis. For the default
+ * N = 5 the angles are [90, 162, 234, 306, 18]° → hero bottom-center, two seats
+ * on the left arc, two on the right arc, and the top-center slot (270°) left
+ * empty for the pot.
+ *
+ * Centers ride an inset ellipse (RADIUS_INSET of the rim) and are then clamped
+ * so every cluster's bounding box stays inside the (padded) stage. Because the
+ * stage is a layout sibling of the coach panel and sits above the action bar,
+ * no cluster can ever reach the panel, the bar, or the window edges.
  */
-// Hero is fixed at bottom-center (x:50). Side seats anchor on the felt RIM:
-// left seats place their LEFT edge here (avatar on the rail, content extends
-// right); right seats place their RIGHT edge here (content extends left). This
-// is what keeps the pods on the rim without clipping the table edge. Mirrored
-// left/right; the top-center slot stays empty for the pot.
-const SEAT_POS: { x: number; y: number }[] = [
-  { x: 50, y: 78 }, // 0 hero — fixed bottom-center (centered)
-  { x: 12, y: 75 }, // 1 lower-left
-  { x: 5, y: 46 }, // 2 mid-left (left edge on the rim)
-  { x: 95, y: 46 }, // 3 mid-right (right edge on the rim)
-  { x: 88, y: 75 }, // 4 lower-right
-];
+const RADIUS_INSET = 0.92; // seat-center ellipse as a fraction of the felt rim
+const BET_INSET = 0.5; // bet chips ride a smaller ellipse, pulled toward the pot
+const STAGE_PAD = 10; // px breathing room inside the stage on every side
 
-/** Where each seat's bet chips sit (pulled toward the pot/board). */
-const BET_POS: { x: number; y: number }[] = [
-  { x: 50, y: 62 }, // hero
-  { x: 32, y: 66 }, // 1 lower-left
-  { x: 24, y: 48 }, // 2 mid-left
-  { x: 76, y: 48 }, // 3 mid-right
-  { x: 68, y: 66 }, // 4 lower-right
-];
+type Dims = { w: number; h: number };
+type SeatPoint = { x: number; y: number; sin: number };
+
+function safeClamp(v: number, lo: number, hi: number): number {
+  if (hi < lo) return (lo + hi) / 2; // box too small for the margins → center it
+  return Math.max(lo, Math.min(hi, v));
+}
+
+/** Angle (radians) for seat `i` of `n`; hero (i = 0) points straight down. */
+function seatAngle(i: number, n: number): number {
+  return Math.PI / 2 + (i * 2 * Math.PI) / n;
+}
+
+/**
+ * A point on the inset ellipse for seat `i`, clamped so a cluster of size
+ * 2·halfW × 2·halfH centered there stays fully inside `dims` (with padding).
+ * The hero is pinned to the exact vertical center line.
+ */
+function seatPoint(
+  i: number,
+  n: number,
+  dims: Dims,
+  inset: number,
+  halfW: number,
+  halfH: number,
+  isHero: boolean,
+): SeatPoint {
+  const cx = dims.w / 2;
+  const cy = dims.h / 2;
+  const ang = seatAngle(i, n);
+  const sin = Math.sin(ang);
+  const x = isHero ? cx : cx + (dims.w / 2) * inset * Math.cos(ang);
+  const y = cy + (dims.h / 2) * inset * sin;
+  return {
+    x: safeClamp(x, halfW + STAGE_PAD, dims.w - halfW - STAGE_PAD),
+    y: safeClamp(y, halfH + STAGE_PAD, dims.h - halfH - STAGE_PAD),
+    sin,
+  };
+}
 
 function winningsFor(game: GameState, seatId: number): number {
   return game.winners.filter((w) => w.seatId === seatId).reduce((sum, w) => sum + w.amount, 0);
@@ -56,106 +89,129 @@ export function PokerTable({
   const showWinners = game.status === 'complete';
   const winnerLine = showWinners ? describeWinner(game) : null;
 
+  // Measure the felt box so all seat math is relative to its rendered size.
+  const boxRef = useRef<HTMLDivElement>(null);
+  const [dims, setDims] = useState<Dims>({ w: 0, h: 0 });
+  useEffect(() => {
+    const el = boxRef.current;
+    if (!el) return;
+    const update = () => setDims({ w: el.clientWidth, h: el.clientHeight });
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const n = game.seats.length;
+  const ready = dims.w > 0 && dims.h > 0;
+  // Cluster half-extents (px), sized to the rendered cluster; smaller in the
+  // compact replay view. Used to face cards inward and to clamp the bbox.
+  const halfW = compact ? 58 : 96;
+  const halfH = compact ? 46 : 66;
+
+  // Outer sizing: mobile uses an aspect ratio (definite height from width); on
+  // desktop `fill` mode is height-driven to fill the table stage. Either way
+  // the inner box is what gets measured.
+  const outerClass = fill
+    ? 'relative mx-auto aspect-[3/4] w-full max-w-md sm:aspect-[16/10] sm:max-w-2xl lg:aspect-auto lg:h-full lg:max-h-full lg:max-w-none'
+    : compact
+      ? 'relative mx-auto aspect-[16/10] w-full max-w-3xl'
+      : 'relative mx-auto aspect-[3/4] w-full max-w-md sm:aspect-[16/10] sm:max-w-3xl';
+
   return (
-    <div
-      className={
-        fill
-          ? 'relative mx-auto aspect-[3/4] w-full max-w-md sm:aspect-[16/10] lg:h-full lg:max-h-full lg:w-auto lg:max-w-full'
-          : 'relative mx-auto aspect-[3/4] w-full max-w-md sm:aspect-[16/10] sm:max-w-3xl'
-      }
-    >
-      {/* Felt surface */}
-      <div className="ring-felt-light/30 absolute inset-[6%] rounded-[44%] bg-felt-radial shadow-deep ring-1 sm:rounded-[46%]">
-        <div className="absolute inset-2 rounded-[44%] ring-1 ring-inset ring-black/40 sm:inset-3 sm:rounded-[46%]" />
-        <div className="absolute inset-0 rounded-[44%] bg-neon-sheen opacity-30 sm:rounded-[46%]" />
-      </div>
+    <div className={outerClass}>
+      <div ref={boxRef} data-testid="table-stage" className="absolute inset-0">
+        {/* Felt — a true ellipse filling the stage box */}
+        <div className="ring-felt-light/30 absolute inset-0 rounded-[50%] bg-felt-radial shadow-deep ring-1">
+          <div className="absolute inset-2 rounded-[50%] ring-1 ring-inset ring-black/40 sm:inset-3" />
+          <div className="absolute inset-0 rounded-[50%] bg-neon-sheen opacity-30" />
+        </div>
 
-      {/* Pot — at the empty top-center slot (no player ever sits here) */}
-      <div
-        className="absolute z-20 -translate-x-1/2 -translate-y-1/2"
-        style={{ left: '50%', top: '11%' }}
-      >
-        <PotDisplay amount={pot} bigBlind={game.bigBlind} />
-      </div>
-
-      {/* Community board — true center, directly below the pot */}
-      <div
-        className="absolute z-20 -translate-x-1/2 -translate-y-1/2"
-        style={{ left: '50%', top: '43%' }}
-      >
-        <Board cards={game.board} size={compact ? 'sm' : 'table'} />
-      </div>
-
-      {/* Winner callout (auto-clears when the next hand begins) */}
-      {winnerLine && (
-        <motion.div
-          className="absolute left-1/2 z-40 -translate-x-1/2 -translate-y-1/2"
-          style={{ top: '63%' }}
-          initial={{ opacity: 0, scale: 0.8, y: 6 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          transition={{ type: 'spring', stiffness: 320, damping: 22 }}
+        {/* Pot — top-center slot (no player ever sits here) */}
+        <div
+          className="absolute z-20 -translate-x-1/2 -translate-y-1/2"
+          style={{ left: '50%', top: '13%' }}
         >
-          <div className="border-accent-gold/50 rounded-full border bg-black/75 px-3 py-1.5 text-center text-[clamp(0.7rem,1.4vw,0.85rem)] font-semibold text-accent-gold shadow-gold backdrop-blur">
-            {winnerLine}
-          </div>
-        </motion.div>
-      )}
+          <PotDisplay amount={pot} bigBlind={game.bigBlind} />
+        </div>
 
-      {/* Per-seat bet chips */}
-      {game.seats.map((seat) => {
-        if (seat.streetCommitted <= 0 || seat.status === 'empty') return null;
-        const pos = BET_POS[seat.id];
-        if (!pos) return null;
-        return (
-          <div
-            key={`bet-${seat.id}`}
-            className="absolute z-30 -translate-x-1/2 -translate-y-1/2"
-            style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
-          >
-            <ChipStack amount={seat.streetCommitted} size={16} animateKey={seat.streetCommitted} />
-          </div>
-        );
-      })}
+        {/* Community board — center of the ellipse */}
+        <div
+          className="absolute z-20 -translate-x-1/2 -translate-y-1/2"
+          style={{ left: '50%', top: '46%' }}
+        >
+          <Board cards={game.board} size={compact ? 'sm' : 'table'} />
+        </div>
 
-      {/* Seats */}
-      {game.seats.map((seat) => {
-        if (seat.status === 'empty') return null;
-        const pos = SEAT_POS[seat.id];
-        if (!pos) return null;
-        // Side seats anchor on the rim and grow inward; the hero is centered.
-        const align: SeatAlign = seat.isHero
-          ? 'center'
-          : pos.x < 40
-            ? 'left'
-            : pos.x > 60
-              ? 'right'
-              : 'center';
-        const xClass =
-          align === 'left'
-            ? 'translate-x-0'
-            : align === 'right'
-              ? '-translate-x-full'
-              : '-translate-x-1/2';
-        return (
+        {/* Winner callout (auto-clears when the next hand begins) */}
+        {winnerLine && (
           <motion.div
-            key={`seat-${seat.id}`}
-            className={cn('absolute z-40 -translate-y-1/2', xClass)}
-            style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
+            className="absolute left-1/2 z-40 -translate-x-1/2 -translate-y-1/2"
+            style={{ top: '65%' }}
+            initial={{ opacity: 0, scale: 0.8, y: 6 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ type: 'spring', stiffness: 320, damping: 22 }}
           >
-            <Seat
-              seat={seat}
-              align={align}
-              isToAct={game.toAct === seat.id && game.status === 'betting'}
-              isButton={game.buttonIndex === seat.id}
-              reveal={game.revealed.includes(seat.id)}
-              won={showWinners ? winningsFor(game, seat.id) : 0}
-              compact={compact}
-            />
+            <div className="border-accent-gold/50 rounded-full border bg-black/75 px-3 py-1.5 text-center text-[clamp(0.7rem,1.4vw,0.85rem)] font-semibold text-accent-gold shadow-gold backdrop-blur">
+              {winnerLine}
+            </div>
           </motion.div>
-        );
-      })}
+        )}
+
+        {ready && (
+          <>
+            {/* Per-seat bet chips — same angle, pulled toward the pot */}
+            {game.seats.map((seat) => {
+              if (seat.streetCommitted <= 0 || seat.status === 'empty') return null;
+              const p = seatPoint(seat.id, n, dims, BET_INSET, 24, 24, seat.isHero);
+              return (
+                <div
+                  key={`bet-${seat.id}`}
+                  className="absolute z-30 -translate-x-1/2 -translate-y-1/2"
+                  style={{ left: p.x, top: p.y }}
+                >
+                  <ChipStack
+                    amount={seat.streetCommitted}
+                    size={16}
+                    animateKey={seat.streetCommitted}
+                  />
+                </div>
+              );
+            })}
+
+            {/* Seats — one cluster each, centered on its ellipse point */}
+            {game.seats.map((seat) => {
+              if (seat.status === 'empty') return null;
+              const p = seatPoint(seat.id, n, dims, RADIUS_INSET, halfW, halfH, seat.isHero);
+              return (
+                // Center the cluster on its ellipse point with a plain wrapper.
+                // (The translate must NOT live on the motion element — Framer
+                // writes its own `transform` for the entrance scale, which would
+                // overwrite a Tailwind -translate and anchor by the corner.)
+                <div
+                  key={`seat-${seat.id}`}
+                  data-testid="seat"
+                  data-seat-id={seat.id}
+                  className="absolute z-40"
+                  style={{ left: p.x, top: p.y, transform: 'translate(-50%, -50%)' }}
+                >
+                  <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}>
+                    <Seat
+                      seat={seat}
+                      cardsBelow={p.sin < 0}
+                      isToAct={game.toAct === seat.id && game.status === 'betting'}
+                      isButton={game.buttonIndex === seat.id}
+                      reveal={game.revealed.includes(seat.id)}
+                      won={showWinners ? winningsFor(game, seat.id) : 0}
+                      compact={compact}
+                    />
+                  </motion.div>
+                </div>
+              );
+            })}
+          </>
+        )}
+      </div>
     </div>
   );
 }

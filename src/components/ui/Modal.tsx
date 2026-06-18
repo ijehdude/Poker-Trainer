@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { cn } from '@/lib/cn';
 
@@ -22,6 +23,10 @@ export function Modal({
   children: React.ReactNode;
   className?: string;
 }) {
+  // Only portal on the client; document.body is unavailable during SSR.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -31,7 +36,12 @@ export function Modal({
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose]);
 
-  return (
+  if (!mounted) return null;
+
+  // Portal to <body> so the overlay's `fixed` positioning is relative to the
+  // viewport, not a transformed/filtered ancestor (e.g. the backdrop-blurred
+  // sticky header this modal is rendered inside).
+  return createPortal(
     <AnimatePresence>
       {open && (
         <motion.div
@@ -73,6 +83,7 @@ export function Modal({
           </motion.div>
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   );
 }

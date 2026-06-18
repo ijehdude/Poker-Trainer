@@ -49,7 +49,7 @@ export function Modal({
             role="dialog"
             aria-modal="true"
             className={cn(
-              'glass relative z-10 w-full max-w-lg rounded-t-xl border border-panel-border shadow-deep sm:rounded-xl',
+              'glass relative z-10 flex max-h-[90dvh] w-full max-w-lg flex-col rounded-t-xl border border-panel-border shadow-deep sm:rounded-xl',
               className,
             )}
             initial={{ y: 24, scale: 0.98, opacity: 0 }}
@@ -58,7 +58,7 @@ export function Modal({
             transition={{ type: 'spring', stiffness: 380, damping: 32 }}
           >
             {title && (
-              <div className="flex items-center justify-between border-b border-panel-border px-5 py-4">
+              <div className="flex shrink-0 items-center justify-between border-b border-panel-border px-5 py-4">
                 <h2 className="font-display text-lg font-semibold">{title}</h2>
                 <button
                   onClick={onClose}
@@ -69,7 +69,7 @@ export function Modal({
                 </button>
               </div>
             )}
-            <div className="pb-safe max-h-[80dvh] overflow-y-auto p-5">{children}</div>
+            <div className="pb-safe flex-1 overflow-y-auto p-5">{children}</div>
           </motion.div>
         </motion.div>
       )}

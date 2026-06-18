@@ -69,7 +69,7 @@ export function Modal({
                 </button>
               </div>
             )}
-            <div className="pb-safe flex-1 overflow-y-auto p-5">{children}</div>
+            <div className="pb-safe min-h-0 flex-1 overflow-y-auto p-5">{children}</div>
           </motion.div>
         </motion.div>
       )}

@@ -104,33 +104,47 @@ export function PokerTable({
 
   const n = game.seats.length;
   const ready = dims.w > 0 && dims.h > 0;
-  // Cluster half-extents (px), sized to the rendered cluster; smaller in the
-  // compact replay view. Used to face cards inward and to clamp the bbox.
-  const halfW = compact ? 58 : 96;
-  const halfH = compact ? 46 : 66;
+  // Dense rendering on small/short stages (phones): smaller cards and tighter
+  // clamp boxes so every seat pod stays inside the felt rim. Driven by the
+  // measured box so it adapts to the actual rendered size, not a breakpoint.
+  const dense = compact || (ready && (dims.w < 400 || dims.h < 480));
+  // Cluster half-extents (px), sized to the rendered cluster. Used to face
+  // cards inward and to clamp each cluster's bounding box inside the stage.
+  const halfW = dense ? 64 : 96;
+  const halfH = dense ? 50 : 66;
+  const cardSize = dense ? 'sm' : 'table';
+  // Pull seat centers a touch further off the rim on dense stages so pods get
+  // breathing room from the felt edge.
+  const radiusInset = dense ? 0.86 : RADIUS_INSET;
 
-  // Outer sizing: mobile uses an aspect ratio (definite height from width); on
-  // desktop `fill` mode is height-driven to fill the table stage. Either way
-  // the inner box is what gets measured.
+  // Outer sizing: `fill` is height-driven on every breakpoint so the ellipse
+  // exactly fills the viewport-locked table region (never overflowing into a
+  // scroll). The replay/standalone views keep an aspect ratio. Either way the
+  // inner box is what gets measured.
   const outerClass = fill
-    ? 'relative mx-auto aspect-[3/4] w-full max-w-md sm:aspect-[16/10] sm:max-w-2xl lg:aspect-auto lg:h-full lg:max-h-full lg:max-w-none'
+    ? 'relative mx-auto h-full max-h-full w-full'
     : compact
       ? 'relative mx-auto aspect-[16/10] w-full max-w-3xl'
       : 'relative mx-auto aspect-[3/4] w-full max-w-md sm:aspect-[16/10] sm:max-w-3xl';
 
   return (
     <div className={outerClass}>
-      <div ref={boxRef} data-testid="table-stage" className="absolute inset-0">
+      <div
+        ref={boxRef}
+        data-testid="table-stage"
+        className="absolute inset-0 select-none [-webkit-tap-highlight-color:transparent]"
+      >
         {/* Felt — a true ellipse filling the stage box */}
         <div className="ring-felt-light/30 absolute inset-0 rounded-[50%] bg-felt-radial shadow-deep ring-1">
           <div className="absolute inset-2 rounded-[50%] ring-1 ring-inset ring-black/40 sm:inset-3" />
           <div className="absolute inset-0 rounded-[50%] bg-neon-sheen opacity-30" />
         </div>
 
-        {/* Pot — top-center slot (no player ever sits here) */}
+        {/* Pot — upper-center, below the two top seats (no player sits at the
+            top-center slot) and above the community board. */}
         <div
           className="absolute z-20 -translate-x-1/2 -translate-y-1/2"
-          style={{ left: '50%', top: '13%' }}
+          style={{ left: '50%', top: '27%' }}
         >
           <PotDisplay amount={pot} bigBlind={game.bigBlind} />
         </div>
@@ -140,7 +154,7 @@ export function PokerTable({
           className="absolute z-20 -translate-x-1/2 -translate-y-1/2"
           style={{ left: '50%', top: '46%' }}
         >
-          <Board cards={game.board} size={compact ? 'sm' : 'table'} />
+          <Board cards={game.board} size={cardSize} />
         </div>
 
         {/* Winner callout (auto-clears when the next hand begins) */}
@@ -182,7 +196,7 @@ export function PokerTable({
             {/* Seats — one cluster each, centered on its ellipse point */}
             {game.seats.map((seat) => {
               if (seat.status === 'empty') return null;
-              const p = seatPoint(seat.id, n, dims, RADIUS_INSET, halfW, halfH, seat.isHero);
+              const p = seatPoint(seat.id, n, dims, radiusInset, halfW, halfH, seat.isHero);
               return (
                 // Center the cluster on its ellipse point with a plain wrapper.
                 // (The translate must NOT live on the motion element — Framer
@@ -203,7 +217,7 @@ export function PokerTable({
                       isButton={game.buttonIndex === seat.id}
                       reveal={game.revealed.includes(seat.id)}
                       won={showWinners ? winningsFor(game, seat.id) : 0}
-                      compact={compact}
+                      compact={dense}
                     />
                   </motion.div>
                 </div>

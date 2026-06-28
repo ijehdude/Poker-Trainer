@@ -87,18 +87,20 @@ export function Seat({
         )}
       </div>
 
-      {/* Name plate */}
+      {/* Name plate — one compact pod: avatar · name+position · stack. */}
       <motion.div
         animate={isToAct ? { scale: 1.04 } : { scale: 1 }}
         transition={{ type: 'spring', stiffness: 300, damping: 20 }}
         className={cn(
-          'bg-panel/90 relative flex items-center gap-2 rounded-full border px-2.5 py-1 backdrop-blur',
+          'bg-panel/90 relative flex items-center rounded-full border backdrop-blur',
+          compact ? 'gap-1.5 px-1.5 py-0.5' : 'gap-2 px-2.5 py-1',
           isToAct ? 'border-accent shadow-neon' : 'border-panel-border',
         )}
       >
         <div
           className={cn(
-            'flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-felt-700 text-[11px] font-bold ring-2',
+            'flex shrink-0 items-center justify-center rounded-full bg-felt-700 font-bold ring-2',
+            compact ? 'h-6 w-6 text-[10px]' : 'h-7 w-7 text-[11px]',
             seat.style ? STYLE_RING[seat.style] : 'ring-accent',
           )}
         >
@@ -106,17 +108,34 @@ export function Seat({
         </div>
         <div className="min-w-0 leading-tight">
           <div className="flex items-center gap-1">
-            <span className="truncate text-xs font-semibold text-ink">{seat.name}</span>
-            <span className="rounded bg-black/55 px-1.5 text-[10px] font-bold tracking-wide text-ink ring-1 ring-white/15">
+            <span
+              className={cn(
+                'truncate font-semibold text-ink',
+                compact ? 'max-w-[4.5rem] text-[11px]' : 'text-xs',
+              )}
+            >
+              {seat.name}
+            </span>
+            <span
+              className={cn(
+                'rounded bg-black/55 px-1.5 text-[10px] font-bold tracking-wide text-ink ring-1 ring-white/15',
+                compact && 'px-1 text-[9px]',
+              )}
+            >
               {seat.position}
             </span>
           </div>
-          <div className="nums text-[11px] font-medium text-accent">{formatAmount(seat.stack)}</div>
+          <div className={cn('nums font-medium text-accent', compact ? 'text-[10px]' : 'text-[11px]')}>
+            {formatAmount(seat.stack)}
+          </div>
         </div>
 
         {isButton && (
           <span
-            className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-accent-gold text-[10px] font-bold text-ink-inverse shadow-gold"
+            className={cn(
+              'absolute -right-2 -top-2 flex items-center justify-center rounded-full bg-accent-gold font-bold text-ink-inverse shadow-gold',
+              compact ? 'h-4 w-4 text-[9px]' : 'h-5 w-5 text-[10px]',
+            )}
             title="Dealer button"
           >
             D

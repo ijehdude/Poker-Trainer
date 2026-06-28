@@ -5,9 +5,11 @@ import { AppHeader } from '@/components/layout/AppHeader';
 import { PokerTable } from '@/components/table/PokerTable';
 import { StreetIndicator } from '@/components/table/StreetIndicator';
 import { Controls } from '@/components/table/Controls';
+import { LiveHint } from '@/components/table/LiveHint';
 import { Button } from '@/components/ui/Button';
 import { CoachPanel } from '@/components/coach/CoachPanel';
 import { TableSettingsButton } from '@/components/table/TableSettings';
+import { cn } from '@/lib/cn';
 import { useGame, type TableConfig } from '@/store/gameStore';
 import { useSettings } from '@/store/settingsStore';
 import { useSession } from '@/store/sessionStore';
@@ -21,6 +23,13 @@ export default function PlayPage() {
   const winnerName = useSession((s) => s.winnerName);
   const soundOn = settings.soundEnabled;
   const [started, setStarted] = useState(false);
+  // Mobile-only: which face of the Play screen is showing. On desktop the
+  // table and coach are side-by-side, so this is ignored (toggle is hidden).
+  const [view, setView] = useState<'table' | 'coach'>('table');
+  // When the bet sizer overlay is open, the table reserves a bottom band so the
+  // overlay can never cover the hero's hole cards (which otherwise sit at the
+  // felt's bottom edge). The felt shrinks; seats reflow up via ResizeObserver.
+  const [sizerOpen, setSizerOpen] = useState(false);
 
   const sfx = useCallback(
     (effect: Parameters<typeof playSound>[0]) => {
@@ -139,6 +148,7 @@ export default function PlayPage() {
               currentBet={game.currentBet}
               bigBlind={game.bigBlind}
               onAction={handleHeroAct}
+              onSizerOpenChange={setSizerOpen}
             />
           ) : (
             <div className="text-center text-sm text-ink-muted">
@@ -154,31 +164,93 @@ export default function PlayPage() {
   ) : null;
 
   return (
-    <div className="fit-screen flex flex-col">
+    <div className="flex h-[100dvh] flex-col overflow-hidden">
       <AppHeader right={<TableSettingsButton />} />
 
       <main
         id="main"
-        className="mx-auto flex min-h-0 w-full max-w-7xl flex-1 flex-col gap-2 px-3 pb-2 pt-3 sm:px-5 lg:grid lg:grid-cols-[minmax(0,1fr)_clamp(320px,26vw,380px)] lg:gap-5 lg:overflow-hidden lg:pb-3"
+        className="mx-auto flex min-h-0 w-full max-w-7xl flex-1 flex-col gap-2 px-3 pb-2 pt-2 sm:px-5 lg:grid lg:grid-cols-[minmax(0,1fr)_clamp(320px,26vw,380px)] lg:gap-5 lg:overflow-hidden lg:pb-3 lg:pt-3"
       >
         {/* Table column */}
-        <section className="flex min-h-0 flex-col gap-2">
+        <section className="flex min-h-0 flex-1 flex-col gap-2">
           {game && (
-            <div className="flex shrink-0 items-center justify-center">
+            <div className="flex shrink-0 items-center justify-center gap-2">
               <StreetIndicator street={game.street} />
+              {/* Mobile Table/Coach toggle (desktop shows both at once). */}
+              <ViewToggle view={view} onChange={setView} className="lg:hidden" />
             </div>
           )}
-          <div className="flex min-h-0 flex-1 items-center justify-center pb-[clamp(0.5rem,3vh,2rem)]">
-            {!started || !game ? <EmptyTable onDeal={deal} /> : <PokerTable game={game} fill />}
+
+          {/* Stage: table on desktop always; on mobile the table OR the coach
+              view, swapped by the toggle. Reserve a bottom band while the bet
+              sizer is open so its overlay never covers the hero's cards. */}
+          <div
+            className="relative flex min-h-0 flex-1 items-center justify-center transition-[padding] duration-200"
+            style={{ paddingBottom: sizerOpen ? 150 : undefined }}
+          >
+            {!started || !game ? (
+              <EmptyTable onDeal={deal} />
+            ) : (
+              <>
+                <div
+                  className={cn(
+                    'h-full w-full items-center justify-center',
+                    view === 'coach' ? 'hidden lg:flex' : 'flex',
+                  )}
+                >
+                  <PokerTable game={game} fill />
+                </div>
+                {view === 'coach' && (
+                  <div className="absolute inset-0 overflow-y-auto lg:hidden">
+                    <CoachPanel />
+                  </div>
+                )}
+              </>
+            )}
           </div>
+
+          {/* Live coaching hint (hero's turn, table view only). */}
+          {game && view === 'table' && heroTurn && (
+            <div className="shrink-0 lg:hidden">
+              <LiveHint onOpenCoach={() => setView('coach')} />
+            </div>
+          )}
+
           {dock}
         </section>
 
-        {/* Coach / equity side panel (below table on mobile, sidebar on desktop) */}
-        <aside data-testid="coach-panel" className="min-h-0 lg:overflow-hidden">
+        {/* Coach / equity sidebar — desktop only (mobile uses the toggle). */}
+        <aside data-testid="coach-panel" className="hidden min-h-0 lg:block lg:overflow-hidden">
           {game && <CoachPanel />}
         </aside>
       </main>
+    </div>
+  );
+}
+
+function ViewToggle({
+  view,
+  onChange,
+  className,
+}: {
+  view: 'table' | 'coach';
+  onChange: (v: 'table' | 'coach') => void;
+  className?: string;
+}) {
+  return (
+    <div className={cn('flex rounded-full bg-panel-raised p-0.5', className)}>
+      {(['table', 'coach'] as const).map((v) => (
+        <button
+          key={v}
+          onClick={() => onChange(v)}
+          className={cn(
+            'rounded-full px-3 py-1 text-xs font-semibold capitalize transition-colors',
+            view === v ? 'bg-accent text-ink-inverse' : 'text-ink-secondary',
+          )}
+        >
+          {v}
+        </button>
+      ))}
     </div>
   );
 }

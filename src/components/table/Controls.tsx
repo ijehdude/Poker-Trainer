@@ -19,8 +19,12 @@ function Kbd({ children }: { children: React.ReactNode }) {
 /**
  * Hero action bar with a bet-sizing control (slider + presets + typed
  * input), shown in both chips and big blinds. Keyboard: F = fold,
- * C = check/call, R = open the raise sizer and focus the input. Sticky to
- * the bottom on mobile for thumb reach; inline on desktop.
+ * C = check/call, R = open the raise sizer and focus the input.
+ *
+ * The bar lives in a fixed bottom dock that is always on-screen (the Play
+ * column is viewport-locked). The bet sizer is a floating overlay anchored
+ * ABOVE the button row, so opening it never grows the dock, reflows the
+ * layout, or covers the board / hero's hole cards (which sit above the dock).
  */
 export function Controls({
   legal,
@@ -28,6 +32,7 @@ export function Controls({
   currentBet,
   bigBlind,
   onAction,
+  onSizerOpenChange,
   disabled,
 }: {
   legal: LegalActions;
@@ -35,12 +40,27 @@ export function Controls({
   currentBet: number;
   bigBlind: number;
   onAction: (a: Action) => void;
+  /** Notifies the parent when the bet-sizer overlay opens/closes, so the table
+   *  stage can reserve room and keep the overlay off the hero's cards. */
+  onSizerOpenChange?: (open: boolean) => void;
   disabled?: boolean;
 }) {
   const { minRaiseTo, maxRaiseTo } = legal;
   const [raiseTo, setRaiseTo] = useState(minRaiseTo);
   const [showSizer, setShowSizer] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Surface sizer open/close to the parent (and reset it when the controls
+  // unmount, e.g. the hero acts or the hand ends). showSizer is only ever set
+  // when raising is legal, so it stands in for "overlay visible".
+  useEffect(() => {
+    onSizerOpenChange?.(showSizer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showSizer]);
+  useEffect(() => {
+    return () => onSizerOpenChange?.(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const canRaise = legal.canRaise && maxRaiseTo > minRaiseTo - 0.001;
   const raiseLabel = legal.isBet ? 'Bet' : 'Raise';
@@ -112,10 +132,11 @@ export function Controls({
   }, [disabled, legal, canRaise]);
 
   return (
-    <div className="w-full">
-      {/* Bet sizer */}
+    <div className="relative w-full">
+      {/* Bet sizer — floating overlay anchored above the button row so it never
+          grows the dock or covers the board / hero cards. */}
       {showSizer && canRaise && (
-        <div className="bg-panel/95 mb-2 rounded-lg border border-panel-border p-3 backdrop-blur">
+        <div className="bg-panel/95 absolute inset-x-0 bottom-full z-40 mb-2 rounded-lg border border-panel-border p-3 shadow-deep backdrop-blur">
           <div className="mb-2 flex items-center justify-between gap-2">
             <span className="text-xs text-ink-muted">{raiseLabel} to</span>
             <div className="flex items-center gap-2">
